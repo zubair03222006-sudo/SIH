@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pollingService } from "../jobs/sourcePolling.js";
 import { WEATHER_GPT_SYSTEM_PROMPT } from "../services/weatherGptPrompt.js";
+import { getWeatherByLocation, formatWeatherForLLM } from "../services/openMeteo.js";
 
 const router = Router();
 
@@ -23,30 +24,49 @@ router.post("/chat", async (req, res) => {
       `- [${e.severity}] ${e.source} (${e.hazardType}): ${e.title} @ ${e.location || 'India'} (Lat: ${e.latitude}, Lon: ${e.longitude})`
     ).join("\n");
 
+    // ── Proactive Open-Meteo weather fetch ──────────────────────────────────
+    // Try to extract a location name from the user message and fetch weather
+    let openMeteoContext = "";
+    try {
+      // Simple heuristic: extract location keywords after "in", "for", "at", or use the full message
+      const locMatch = message.match(/(?:in|for|at|of|near)\s+([A-Z][a-zA-Z\s,]+?)(?:\?|$|\.|\!|,\s*(?:and|or|what|how|will|is|are|do|can))/i);
+      const locationGuess = locMatch ? locMatch[1].trim() : null;
+      
+      if (locationGuess && locationGuess.length >= 3 && locationGuess.length <= 60) {
+        const weatherData = await getWeatherByLocation(locationGuess);
+        if (weatherData) {
+          openMeteoContext = `\n\n============================================================\nLIVE OPEN-METEO WEATHER DATA FOR USER QUERY:\n============================================================\n${formatWeatherForLLM(weatherData)}`;
+        }
+      }
+    } catch (weatherErr) {
+      console.warn("[WeatherGPT] Open-Meteo proactive fetch failed:", weatherErr);
+    }
+
     const fullSystemPrompt = `${WEATHER_GPT_SYSTEM_PROMPT}
 
 ============================================================
 LIVE ACTIVE INDIA DISASTER & WEATHER EVENTS CONTEXT:
 ============================================================
 ${contextSummary.length > 0 ? contextSummary : "No critical live warnings currently active."}
-
+${openMeteoContext}
 ${locationContext ? `User Current Location Context: ${JSON.stringify(locationContext)}` : ""}
 `;
 
-    const groqKey = process.env.GROQ_API_KEY;
+
+    const googleKey = process.env.GOOGLE_API_KEY || "";
     const openRouterKey = process.env.OPENROUTER_API_KEY;
 
     let responseText = "";
 
-    if (groqKey) {
-      const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    if (googleKey) {
+      const googleRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${groqKey}`
+          "Authorization": `Bearer ${googleKey}`
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: "gemini-2.5-flash",
           messages: [
             { role: "system", content: fullSystemPrompt },
             ...(Array.isArray(history) ? history : []),
@@ -57,9 +77,9 @@ ${locationContext ? `User Current Location Context: ${JSON.stringify(locationCon
         })
       }).catch(() => null);
 
-      if (groqRes && groqRes.ok) {
-        const groqData = await groqRes.json();
-        responseText = groqData.choices?.[0]?.message?.content || "";
+      if (googleRes && googleRes.ok) {
+        const googleData = await googleRes.json();
+        responseText = googleData.choices?.[0]?.message?.content || "";
       }
     }
 

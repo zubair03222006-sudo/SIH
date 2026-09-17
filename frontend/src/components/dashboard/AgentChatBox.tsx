@@ -26,13 +26,12 @@ import { type RouteKind, type MarkerKind, nearestCity } from "../../components/g
 
 /* ─── constants ─────────────────────────────────────────────────────────────── */
 
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GOOGLE_MODEL = "gemini-2.5-flash";
 
 // OpenRouter Fallback Model config
 const OPENROUTER_MODEL = import.meta.env.VITE_OPENROUTER_MODEL || "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_URL || "";
-const HINDSIGHT_API_KEY = "backend"; // Managed by backend API, always enable checks on frontend
 
 // Sliding window: only last N messages sent to LLM (saves tokens)
 const HISTORY_WINDOW = 4;
@@ -49,13 +48,13 @@ interface ChatMessage {
   actions?: string[];
 }
 
-type GroqMessage =
+type LlmMessage =
   | { role: "system"; content: string }
   | { role: "user"; content: string }
-  | { role: "assistant"; content: string | null; tool_calls?: GroqToolCall[] }
+  | { role: "assistant"; content: string | null; tool_calls?: LlmToolCall[] }
   | { role: "tool"; tool_call_id: string; content: string };
 
-interface GroqToolCall {
+interface LlmToolCall {
   id: string;
   type: "function";
   function: { name: string; arguments: string };
@@ -245,49 +244,13 @@ const TOOL_DEFINITIONS = [
       parameters: { type: "object", properties: {} },
     },
   },
-  // ── Hindsight Memory tools ──────────────────────────────────────────────────
-  {
-    type: "function",
-    function: {
-      name: "memory_retain",
-      description:
-        "Save an important fact, user preference, or key observation to long-term memory. Use this proactively whenever the user shares preferences, locations they care about, mission parameters, or any context that should be remembered across sessions.",
-      parameters: {
-        type: "object",
-        properties: {
-          content: {
-            type: "string",
-            description: "The fact or context to store. Be concise and specific.",
-          },
-        },
-        required: ["content"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "memory_recall",
-      description:
-        "Search long-term memory for relevant past context. Use this when the user references something from a previous session, or when you need past preferences/facts to answer accurately.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "What to search for in memory.",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  },
+
 ];
 
 /* ─── system prompt ─────────────────────────────────────────────────────────── */
 
 const SYSTEM_PROMPT = `You are Sentinel WeatherGPT India, operator of the Sentinel multi-hazard 3D globe and conversational disaster AI.
-Control globe markers, river flood levels, weather alerts, supply routes, and Hindsight long-term memory via tools.
+Control globe markers, river flood levels, weather alerts, and supply routes via tools.
 Provide accurate, tactical Indian weather forecasting, district-level warnings, CWC river flood levels, and emergency evacuation guidance.`;
 
 /* ─── quick suggestions ─────────────────────────────────────────────────────── */
@@ -301,65 +264,13 @@ const SUGGESTIONS = [
   "Are there active forest fires in Western Ghats?",
 ];
 
-/* ─── Hindsight API helpers ─────────────────────────────────────────────────── */
 
-interface MemoryFact {
-  id: string;
-  content: string;
-  timestamp: string;
-}
-
-async function hindsightRetain(content: string): Promise<string> {
-  try {
-    const res = await fetch(`${BACKEND_API_URL}/api/memory/retain`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    });
-    if (!res.ok) throw new Error(`Backend HTTP error: ${res.status}`);
-    return "Memory retained successfully.";
-  } catch (err) {
-    return `Failed to retain memory: ${err}`;
-  }
-}
-
-async function hindsightRecall(query: string): Promise<{ result: string; facts: string[] }> {
-  try {
-    const res = await fetch(`${BACKEND_API_URL}/api/memory/recall`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-    });
-    if (!res.ok) throw new Error(`Backend HTTP error: ${res.status}`);
-    const data = await res.json();
-    const snippets = data.facts || [];
-    
-    const result = snippets.length > 0
-      ? `Recalled ${snippets.length} memory snippet(s):\n${snippets.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n")}`
-      : "No relevant memories found.";
-    return { result, facts: snippets };
-  } catch (err) {
-    return { result: `Failed to recall memory: ${err}`, facts: [] };
-  }
-}
-
-async function hindsightList(): Promise<MemoryFact[]> {
-  try {
-    const res = await fetch(`${BACKEND_API_URL}/api/memory/list`);
-    if (!res.ok) throw new Error(`Backend HTTP error: ${res.status}`);
-    const data = await res.json();
-    return data.facts || [];
-  } catch (err) {
-    console.error("Failed to list Hindsight memories from backend:", err);
-    return [];
-  }
-}
 
 interface ChatSession {
   id: string;
   title: string;
   messages: ChatMessage[];
-  groqHistory: GroqMessage[];
+  llmHistory: LlmMessage[];
   createdAt: string;
 }
 
@@ -429,11 +340,11 @@ export function AgentChatBox() {
         {
           id: "welcome",
           role: "agent",
-          text: "👋 I'm **AEGIS Agent**. I have full globe control + **persistent memory** via Hindsight.\n\nTry: *\"Remember that my HQ is in Delhi\"* or *\"Add a critical earthquake in Tokyo\"*",
+          text: "👋 I'm **AEGIS Agent**. I have full globe control.\n\nTry: *\"Add a critical earthquake in Tokyo\"*",
           timestamp: new Date(),
         },
       ],
-      groqHistory: [],
+      llmHistory: [],
       createdAt: new Date().toISOString(),
     };
     return [defaultSession];
@@ -445,11 +356,9 @@ export function AgentChatBox() {
   });
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [groqHistory, setGroqHistory] = useState<GroqMessage[]>([]);
+  const [llmHistory, setLlmHistory] = useState<LlmMessage[]>([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
-  const [memoryFacts, setMemoryFacts] = useState<MemoryFact[]>([]);
-  const [memoryStatus, setMemoryStatus] = useState<"idle" | "saving" | "recalling">("idle");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -471,14 +380,14 @@ export function AgentChatBox() {
           timestamp: new Date(m.timestamp),
         }));
         setMessages(messagesWithDates);
-        setGroqHistory(session.groqHistory);
+        setLlmHistory(session.llmHistory);
       }
     }
   }, [currentSessionId]);
 
   // Save current messages & history back to sessions array in localStorage
   useEffect(() => {
-    if (messages.length === 0 && groqHistory.length === 0) return;
+    if (messages.length === 0 && llmHistory.length === 0) return;
 
     setSessions((prev) => {
       const next = prev.map((s) => {
@@ -486,7 +395,7 @@ export function AgentChatBox() {
           return {
             ...s,
             messages,
-            groqHistory,
+            llmHistory,
           };
         }
         return s;
@@ -494,20 +403,9 @@ export function AgentChatBox() {
       localStorage.setItem("aegis_chat_sessions", JSON.stringify(next));
       return next;
     });
-  }, [messages, groqHistory, currentSessionId]);
+  }, [messages, llmHistory, currentSessionId]);
 
-  // Load memories from Hindsight Cloud on mount
-  useEffect(() => {
-    const fetchMemories = async () => {
-      setMemoryStatus("recalling");
-      const list = await hindsightList();
-      setMemoryFacts(list);
-      setMemoryStatus("idle");
-    };
-    if (HINDSIGHT_API_KEY) {
-      fetchMemories();
-    }
-  }, []);
+
 
   // Callback to create a new session
   const createNewSession = useCallback(() => {
@@ -519,11 +417,11 @@ export function AgentChatBox() {
         {
           id: `welcome-${Date.now()}`,
           role: "agent",
-          text: "👋 Welcome! I am **WeatherGPT India** (Sentinel AI Agent). I monitor live IMD weather warnings, CWC river flood levels, coastal advisories, and satellite hotspots in real time while retaining past context via Hindsight memory.\n\nTry asking me: *\"What is the weather alert for Wayanad, Kerala?\"* or *\"Show CWC flood levels for Ganga and Brahmaputra\"*",
+          text: "👋 Welcome! I am **WeatherGPT India** (Sentinel AI Agent). I monitor live IMD weather warnings, CWC river flood levels, coastal advisories, and satellite hotspots in real time.\n\nTry asking me: *\"What is the weather alert for Wayanad, Kerala?\"* or *\"Show CWC flood levels for Ganga and Brahmaputra\"*",
           timestamp: new Date(),
         },
       ],
-      groqHistory: [],
+      llmHistory: [],
       createdAt: new Date().toISOString(),
     };
     setSessions((prev) => {
@@ -773,17 +671,17 @@ export function AgentChatBox() {
 
   const makeLLMCall = useCallback(
     async (
-      messages: GroqMessage[],
+      messages: LlmMessage[],
       isFallback: boolean,
       includeTools: boolean = true,
       isInitialQueryOpenRouter: boolean = false,
       signal?: AbortSignal
     ): Promise<Response> => {
-      const systemMessages: GroqMessage[] = [{ role: "system", content: SYSTEM_PROMPT }];
+      const systemMessages: LlmMessage[] = [{ role: "system", content: SYSTEM_PROMPT }];
       const fullMessages = [...systemMessages, ...messages];
 
       // Filter tools based on API provider role
-      const groqAllowedTools = [
+      const googleAllowedTools = [
         "add_disaster_event", "remove_disaster_event",
         "add_supply_route", "remove_supply_route",
         "add_geo_marker", "remove_geo_marker",
@@ -798,7 +696,7 @@ export function AgentChatBox() {
 
       const provider = !isFallback ? "groq" : "openrouter";
       const payload: Record<string, unknown> = {
-        model: !isFallback ? GROQ_MODEL : OPENROUTER_MODEL,
+        model: !isFallback ? GOOGLE_MODEL : OPENROUTER_MODEL,
         messages: fullMessages,
         max_tokens: 1024,
         temperature: 0.3,
@@ -806,8 +704,8 @@ export function AgentChatBox() {
 
       if (includeTools) {
         const allowedList = !isFallback 
-          ? groqAllowedTools 
-          : (isInitialQueryOpenRouter ? openRouterAllowedTools : groqAllowedTools);
+          ? googleAllowedTools 
+          : (isInitialQueryOpenRouter ? openRouterAllowedTools : googleAllowedTools);
         payload.tools = TOOL_DEFINITIONS.filter(t => allowedList.includes(t.function.name));
         payload.tool_choice = "auto";
       }
@@ -829,31 +727,14 @@ export function AgentChatBox() {
 
   /* ─── Groq API call with tool loop + Hindsight memory ───────────────────── */
 
-  const callGroq = useCallback(
+  const callLlm = useCallback(
     async (userText: string, signal?: AbortSignal) => {
-      // ── Proactive Hindsight Recall ──
-      let proactiveMemoryContext = "";
-      if (HINDSIGHT_API_KEY) {
-        try {
-          if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-          setMemoryStatus("recalling");
-          const { facts } = await hindsightRecall(userText);
-          if (facts.length > 0) {
-            proactiveMemoryContext = `[Relevant memories from Hindsight Cloud]\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\n`;
-          }
-        } catch (err) {
-          console.error("[AEGIS Memory] Proactive recall failed:", err);
-        } finally {
-          setMemoryStatus("idle");
-        }
-      }
-
-      const userMsgContent = `${proactiveMemoryContext}${userText}`;
-      const userMsg: GroqMessage = { role: "user", content: userMsgContent };
+      const userMsgContent = `${userText}`;
+      const userMsg: LlmMessage = { role: "user", content: userMsgContent };
 
       // ── Sliding window: only keep last HISTORY_WINDOW messages (token savings) ──
-      const windowedHistory = groqHistory.slice(-HISTORY_WINDOW);
-      let currentHistory: GroqMessage[] = [...windowedHistory, userMsg];
+      const windowedHistory = llmHistory.slice(-HISTORY_WINDOW);
+      let currentHistory: LlmMessage[] = [...windowedHistory, userMsg];
       const actionsPerformed: string[] = [];
 
       // Token Tracking Variables
@@ -876,7 +757,7 @@ export function AgentChatBox() {
       let iteration = 0;
       for (; iteration < 4; iteration++) {
         if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-        console.log(`[AEGIS LLM] Iteration ${iteration + 1} — using ${isFallback ? "OpenRouter" : "Groq"}`);
+        console.log(`[AEGIS LLM] Iteration ${iteration + 1} — using ${isFallback ? "OpenRouter" : "Google"}`);
 
         let res: Response;
 
@@ -886,10 +767,10 @@ export function AgentChatBox() {
             res = await makeLLMCall(currentHistory, false, true, isInitiallyOpenRouter, signal);
             if (!res.ok) {
               const errText = await res.text();
-              throw new Error(`Groq HTTP ${res.status}: ${errText}`);
+              throw new Error(`Google HTTP ${res.status}: ${errText}`);
             }
           } catch (groqErr) {
-            console.warn("[AEGIS LLM] Groq failed — switching to OpenRouter for this turn:", groqErr);
+            console.warn("[AEGIS LLM] Google failed — switching to OpenRouter for this turn:", groqErr);
             isFallback = true;
             if (!actionsPerformed.includes("⚠️ Fallback: OpenRouter active")) {
               actionsPerformed.push("⚠️ Fallback: OpenRouter active");
@@ -925,7 +806,7 @@ export function AgentChatBox() {
         const completionTokens = data.usage?.completion_tokens ?? 0;
         accumulatedInput += promptTokens;
         accumulatedOutput += completionTokens;
-        const modelUsed = data.model ?? (isFallback ? OPENROUTER_MODEL : GROQ_MODEL);
+        const modelUsed = data.model ?? (isFallback ? OPENROUTER_MODEL : GOOGLE_MODEL);
         if (!runModels.includes(modelUsed)) runModels.push(modelUsed);
 
         const iterationCost = isFallback
@@ -942,7 +823,7 @@ export function AgentChatBox() {
         }
 
         // ── Strip reasoning/reasoning_details (internal chain-of-thought) ────
-        const cleanedAssistantMsg: GroqMessage = {
+        const cleanedAssistantMsg: LlmMessage = {
           role: "assistant",
           content: assistantMsg.content ?? null,
           ...(assistantMsg.tool_calls ? { tool_calls: assistantMsg.tool_calls } : {}),
@@ -958,7 +839,7 @@ export function AgentChatBox() {
           if (!finalReply || finalReply.trim() === "") {
             console.warn("[AEGIS LLM] Empty content — requesting clean summary from model...");
             try {
-              const summaryHistory: GroqMessage[] = [
+              const summaryHistory: LlmMessage[] = [
                 ...currentHistory,
                 {
                   role: "user",
@@ -974,7 +855,7 @@ export function AgentChatBox() {
                 const sCompletionTokens = summaryData.usage?.completion_tokens ?? 0;
                 accumulatedInput += sPromptTokens;
                 accumulatedOutput += sCompletionTokens;
-                const sModel = summaryData.model ?? (isFallback ? OPENROUTER_MODEL : GROQ_MODEL);
+                const sModel = summaryData.model ?? (isFallback ? OPENROUTER_MODEL : GOOGLE_MODEL);
                 if (!runModels.includes(sModel)) runModels.push(sModel);
                 
                 const sCost = isFallback
@@ -990,12 +871,12 @@ export function AgentChatBox() {
           }
 
           // ── Pruned Turn History ──
-          const cleanTurnHistory: GroqMessage[] = [
+          const cleanTurnHistory: LlmMessage[] = [
             ...windowedHistory,
             { role: "user", content: userText },
             { role: "assistant", content: finalReply || "Operations completed." },
           ];
-          setGroqHistory(cleanTurnHistory);
+          setLlmHistory(cleanTurnHistory);
 
           const totalTokens = accumulatedInput + accumulatedOutput;
           if (totalTokens > 15000) {
@@ -1023,8 +904,8 @@ export function AgentChatBox() {
         }
 
         // ── Execute tool calls ────────────────────────────────────────────────
-        const toolResults: GroqMessage[] = [];
-        for (const tc of assistantMsg.tool_calls as GroqToolCall[]) {
+        const toolResults: LlmMessage[] = [];
+        for (const tc of assistantMsg.tool_calls as LlmToolCall[]) {
           let parsedArgs: Record<string, unknown> = {};
           try {
             parsedArgs = JSON.parse(tc.function.arguments);
@@ -1034,40 +915,10 @@ export function AgentChatBox() {
 
           let toolResult: string;
 
-          // ── Hindsight memory_retain ──────────────────────────────────────────
-          if (tc.function.name === "memory_retain") {
-            setMemoryStatus("saving");
-            const content = parsedArgs.content as string;
-            toolResult = await hindsightRetain(content);
-            const updated = await hindsightList();
-            if (updated.length > 0) {
-              setMemoryFacts(updated);
-            } else {
-              setMemoryFacts((prev) => [
-                { id: `mem-${Date.now()}`, content, timestamp: new Date().toISOString() },
-                ...prev.slice(0, 19),
-              ]);
-            }
-            actionsPerformed.push(`🧠 Memory retained: "${content.slice(0, 60)}${content.length > 60 ? "…" : ""}"`);
-            setMemoryStatus("idle");
-
-          // ── Hindsight memory_recall ──────────────────────────────────────────
-          } else if (tc.function.name === "memory_recall") {
-            setMemoryStatus("recalling");
-            const query = parsedArgs.query as string;
-            const { result, facts } = await hindsightRecall(query);
-            toolResult = result;
-            if (facts.length > 0) {
-              actionsPerformed.push(`🧠 Recalled ${facts.length} memory snippet(s) for "${query}"`);
-            }
-            setMemoryStatus("idle");
-
-          // ── All other globe tools ────────────────────────────────────────────
-          } else {
-            const { result, action } = executeTool(tc.function.name, parsedArgs);
-            if (action) actionsPerformed.push(action);
-            toolResult = result;
-          }
+// ── All other globe tools ──
+          const { result, action } = executeTool(tc.function.name, parsedArgs);
+          if (action) actionsPerformed.push(action);
+          toolResult = result;
 
           toolResults.push({
             role: "tool",
@@ -1080,12 +931,12 @@ export function AgentChatBox() {
       }
 
       // Max iterations reached — return summary of actions
-      const cleanTurnHistory: GroqMessage[] = [
+      const cleanTurnHistory: LlmMessage[] = [
         ...windowedHistory,
         { role: "user", content: userText },
         { role: "assistant", content: "Operations completed." },
       ];
-      setGroqHistory(cleanTurnHistory);
+      setLlmHistory(cleanTurnHistory);
 
       const totalTokens = accumulatedInput + accumulatedOutput;
       if (totalTokens > 15000) {
@@ -1110,7 +961,7 @@ export function AgentChatBox() {
         actions: actionsPerformed,
       };
     },
-    [groqHistory, executeTool, makeLLMCall],
+    [llmHistory, executeTool, makeLLMCall],
   );
 
 
@@ -1137,7 +988,7 @@ export function AgentChatBox() {
     setTyping(true);
 
     try {
-      const { text: reply, actions } = await callGroq(text, controller.signal);
+      const { text: reply, actions } = await callLlm(text, controller.signal);
       const agentMsg: ChatMessage = {
         id: `a-${Date.now()}`,
         role: "agent",
@@ -1153,14 +1004,14 @@ export function AgentChatBox() {
       const errMsg: ChatMessage = {
         id: `err-${Date.now()}`,
         role: "agent",
-        text: `❌ **Connection error:** ${err instanceof Error ? err.message : "Failed to reach Groq API."}`,
+        text: `❌ **Connection error:** ${err instanceof Error ? err.message : "Failed to reach AI API."}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errMsg]);
     } finally {
       setTyping(false);
     }
-  }, [input, typing, callGroq]);
+  }, [input, typing, callLlm]);
 
   /* ─── render helpers ─────────────────────────────────────────────────────── */
 

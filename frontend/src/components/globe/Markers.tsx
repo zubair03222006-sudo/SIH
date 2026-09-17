@@ -24,47 +24,7 @@ import { useSelectionStore } from "../../hooks/useSelectionStore";
 import { LiveEvent } from "../../lib/api/live-data";
 import type { Marker } from "../../hooks/useMarkersStore";
 
-/* ─── De-clumping / Spatial Dispenser Algorithm ───────────────────────────── */
 
-/**
- * Spatial decluttering dispenser: Group events that are geographically close (<0.8°)
- * and spread them in a clean sunflower spiral pattern so badges never clump into an unreadable pile.
- */
-function getDeclutteredCoordinates(events: LiveEvent[]): Map<string, [number, number]> {
-  const coordsMap = new Map<string, [number, number]>();
-  const clusters: Record<string, LiveEvent[]> = {};
-
-  for (const ev of events) {
-    const lat = ev.coords?.[0] ?? ev.latitude ?? 0;
-    const lng = ev.coords?.[1] ?? ev.longitude ?? 0;
-    const cellKey = `${Math.round(lat / 0.7)},${Math.round(lng / 0.7)}`;
-    if (!clusters[cellKey]) clusters[cellKey] = [];
-    clusters[cellKey].push(ev);
-  }
-
-  for (const cellKey in clusters) {
-    const group = clusters[cellKey];
-    if (group.length === 1) {
-      const ev = group[0];
-      coordsMap.set(ev.id, [ev.coords?.[0] ?? ev.latitude, ev.coords?.[1] ?? ev.longitude]);
-    } else {
-      group.forEach((ev, idx) => {
-        const baseLat = ev.coords?.[0] ?? ev.latitude;
-        const baseLng = ev.coords?.[1] ?? ev.longitude;
-        if (idx === 0) {
-          coordsMap.set(ev.id, [baseLat, baseLng]);
-        } else {
-          const angle = (idx * (2 * Math.PI / (group.length - 1))) + 0.3;
-          const radiusOffset = 0.55 + Math.floor((idx - 1) / 6) * 0.45;
-          const latOffset = Math.sin(angle) * radiusOffset;
-          const lngOffset = Math.cos(angle) * radiusOffset;
-          coordsMap.set(ev.id, [baseLat + latOffset, baseLng + lngOffset]);
-        }
-      });
-    }
-  }
-  return coordsMap;
-}
 
 /* ─── Hazard Icon Renderer ─────────────────────────────────────────────────── */
 
@@ -277,13 +237,10 @@ export function Markers({ radius }: { radius: number }) {
   const { markers } = useMarkersStore();
   const { selected, toggleSelect } = useSelectionStore();
 
-  // Compute decluttered spatial coordinates for all events
-  const declutteredCoords = useMemo(() => getDeclutteredCoordinates(events), [events]);
-
   return (
     <group>
       {events.map((e) => {
-        const coords = declutteredCoords.get(e.id) || e.coords || [e.latitude, e.longitude];
+        const coords: [number, number] = [e.coords?.[0] ?? e.latitude, e.coords?.[1] ?? e.longitude];
         return (
           <DisasterBadgeMarker
             key={e.id}

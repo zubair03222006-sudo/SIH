@@ -9,7 +9,6 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@vectorize-io/hindsight-client": "^0.8.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.2"

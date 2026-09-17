@@ -1,13 +1,13 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import hindsightRoutes from "./hindsight.js";
 import eventsRoutes from "./routes/events.routes.js";
 import alertsRoutes from "./routes/alerts.routes.js";
 import sourcesRoutes from "./routes/sources.routes.js";
 import weatherGptRoutes from "./routes/weatherGpt.routes.js";
 import routingRoutes from "./routes/routing.routes.js";
 import fieldReportsRoutes from "./routes/fieldReports.routes.js";
+import weatherRoutes from "./routes/weather.routes.js";
 import { pollingService } from "./jobs/sourcePolling.js";
 import { HazardType, LiveEvent } from "./types/disaster.js";
 
@@ -25,9 +25,6 @@ app.use(cors());
 
 app.use(express.json());
 
-// Mount Hindsight Memory API
-app.use("/api/memory", hindsightRoutes);
-
 // Mount Modular Routes
 app.use("/api/events", eventsRoutes);
 app.use("/api/alerts", alertsRoutes);
@@ -35,6 +32,7 @@ app.use("/api/sources", sourcesRoutes);
 app.use("/api/weather-gpt", weatherGptRoutes);
 app.use("/api/routing", routingRoutes);
 app.use("/api/field-reports", fieldReportsRoutes);
+app.use("/api/weather", weatherRoutes);
 
 // LLM Proxy API to hide keys from the frontend bundle
 app.post("/api/chat", async (req, res) => {
@@ -50,11 +48,11 @@ app.post("/api/chat", async (req, res) => {
     "Content-Type": "application/json",
   };
 
-  if (provider === "groq") {
-    endpoint = "https://api.groq.com/openai/v1/chat/completions";
-    apiKey = process.env.GROQ_API_KEY || "";
+  if (provider === "google") {
+    endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+    apiKey = process.env.GOOGLE_API_KEY || "";
     if (!apiKey) {
-      res.status(500).json({ error: "Groq API key not configured on backend." });
+      res.status(500).json({ error: "Google API key not configured on backend." });
       return;
     }
     headers["Authorization"] = `Bearer ${apiKey}`;
@@ -69,7 +67,7 @@ app.post("/api/chat", async (req, res) => {
     headers["HTTP-Referer"] = "http://localhost:3000";
     headers["X-Title"] = "AEGIS AI Agent";
   } else {
-    res.status(400).json({ error: "Invalid provider. Must be 'groq' or 'openrouter'" });
+    res.status(400).json({ error: "Invalid provider. Must be 'google' or 'openrouter'" });
     return;
   }
 

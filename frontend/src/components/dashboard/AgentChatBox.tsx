@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 
-type Language = "en-IN" | "hi-IN" | "te-IN";
+type Language = "en-IN" | "hi-IN" | "te-IN" | "mr-IN" | "bn-IN" | "ta-IN" | "kn-IN" | "ml-IN";
 type RiskLevel = "low" | "moderate" | "high";
 
 interface WeatherReply {
@@ -71,6 +71,11 @@ const LANGUAGES: Array<{ value: Language; label: string }> = [
   { value: "en-IN", label: "English" },
   { value: "hi-IN", label: "हिन्दी" },
   { value: "te-IN", label: "తెలుగు" },
+  { value: "mr-IN", label: "मराठी" },
+  { value: "bn-IN", label: "বাংলা" },
+  { value: "ta-IN", label: "தமிழ்" },
+  { value: "kn-IN", label: "ಕನ್ನಡ" },
+  { value: "ml-IN", label: "മലയാളം" },
 ];
 const COPY: Record<
   Language,
@@ -96,6 +101,41 @@ const COPY: Record<
     placeholder: "వాతావరణం లేదా వ్యవసాయం గురించి అడగండి…",
     suggestion: "రేపు హైదరాబాద్‌లో వర్షం పడుతుందా?",
     listening: "వింటున్నాను…",
+  },
+  "mr-IN": {
+    welcome:
+      "भारतातील शहराच्या सध्याच्या किंवा आगामी हवामानाबद्दल विचारा. प्रत्येक उत्तर NOAA GFS डेटावर आधारित आहे.",
+    placeholder: "हवामान किंवा शेतीविषयी विचारा…",
+    suggestion: "उद्या संध्याकाळी हैदराबादमध्ये पाऊस पडेल का?",
+    listening: "ऐकत आहे…",
+  },
+  "bn-IN": {
+    welcome:
+      "ভারতের কোনো শহরের বর্তমান বা আসন্ন আবহাওয়া সম্পর্কে জিজ্ঞাসা করুন। প্রতিটি উত্তর NOAA GFS তথ্যভিত্তিক।",
+    placeholder: "আবহাওয়া বা কৃষিকাজ সম্পর্কে জিজ্ঞাসা করুন…",
+    suggestion: "আগামীকাল সন্ধ্যায় হায়দরাবাদে বৃষ্টি হবে কি?",
+    listening: "শুনছি…",
+  },
+  "ta-IN": {
+    welcome:
+      "இந்திய நகரத்தின் தற்போதைய அல்லது வரவிருக்கும் வானிலையைப் பற்றி கேளுங்கள். ஒவ்வொரு பதிலும் NOAA GFS தரவைப் பயன்படுத்துகிறது.",
+    placeholder: "வானிலை அல்லது விவசாயம் பற்றி கேளுங்கள்…",
+    suggestion: "நாளை மாலை ஹைதராபாத்தில் மழை பெய்யுமா?",
+    listening: "கேட்கிறேன்…",
+  },
+  "kn-IN": {
+    welcome:
+      "ಭಾರತದ ನಗರದ ಪ್ರಸ್ತುತ ಅಥವಾ ಮುಂಬರುವ ಹವಾಮಾನದ ಬಗ್ಗೆ ಕೇಳಿ. ಪ್ರತಿ ಉತ್ತರವು NOAA GFS ಡೇಟಾವನ್ನು ಬಳಸುತ್ತದೆ.",
+    placeholder: "ಹವಾಮಾನ ಅಥವಾ ಕೃಷಿ ಚಟುವಟಿಕೆ ಬಗ್ಗೆ ಕೇಳಿ…",
+    suggestion: "ನಾಳೆ ಸಂಜೆ ಹೈದರಾಬಾದ್‌ನಲ್ಲಿ ಮಳೆಯಾಗುತ್ತದೆಯೇ?",
+    listening: "ಕೇಳುತ್ತಿದ್ದೇನೆ…",
+  },
+  "ml-IN": {
+    welcome:
+      "ഇന്ത്യയിലെ ഒരു നഗരത്തിന്റെ നിലവിലെ അല്ലെങ്കിൽ വരാനിരിക്കുന്ന കാലാവസ്ഥയെക്കുറിച്ച് ചോദിക്കുക. ഓരോ ഉത്തരവും NOAA GFS ഡാറ്റ ഉപയോഗിക്കുന്നു.",
+    placeholder: "കാലാവസ്ഥയെയോ കൃഷിയെയോ കുറിച്ച് ചോദിക്കുക…",
+    suggestion: "നാളെ വൈകുന്നേരം ഹൈദരാബാദിൽ മഴ പെയ്യുമോ?",
+    listening: "കേൾക്കുന്നു…",
   },
 };
 
@@ -237,8 +277,9 @@ export function AgentChatBox() {
   }
 
   return (
-    <section className="pointer-events-auto fixed bottom-4 right-4 z-50 flex h-[min(680px,calc(100dvh-2rem))] w-[min(430px,calc(100vw-2rem))] min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#07101d]/95 text-white shadow-2xl backdrop-blur-xl max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-screen max-sm:rounded-none max-sm:border-0">
-      <header className="shrink-0 border-b border-white/10 px-4 py-3">
+    <section className="pointer-events-auto fixed bottom-4 right-4 z-50 isolate flex h-[min(680px,calc(100dvh-2rem))] w-[min(430px,calc(100vw-2rem))] min-w-0 flex-col overflow-hidden rounded-2xl border border-sky-200/15 bg-[linear-gradient(145deg,rgba(7,16,29,0.97),rgba(10,25,43,0.94))] text-white shadow-[0_24px_80px_rgba(0,0,0,0.65),0_0_36px_rgba(56,189,248,0.08)] backdrop-blur-2xl backdrop-saturate-150 max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-screen max-sm:rounded-none max-sm:border-0">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_32%)]" />
+      <header className="shrink-0 border-b border-white/10 bg-white/[0.025] px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-400/15 ring-1 ring-sky-300/20">
@@ -371,7 +412,7 @@ export function AgentChatBox() {
         )}
       </div>
 
-      <footer className="shrink-0 border-t border-white/10 bg-black/20 p-3 max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <footer className="shrink-0 border-t border-white/10 bg-slate-950/55 p-3 backdrop-blur-xl max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {voiceNotice && (
           <p className="mb-2 rounded-lg bg-amber-400/10 px-3 py-2 text-[11px] text-amber-100">
             {voiceNotice}

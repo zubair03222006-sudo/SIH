@@ -54,7 +54,7 @@ export function HUD() {
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 font-mono text-[10px] tracking-[0.18em] text-foreground/90 max-sm:hidden">
+    <div className="pointer-events-none absolute inset-0 z-[5] font-mono text-[10px] tracking-[0.18em] text-foreground/90 max-sm:hidden">
       {/* Top bar — subtle glass overlay text */}
       <div className="absolute left-0 right-0 top-0 flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-3">

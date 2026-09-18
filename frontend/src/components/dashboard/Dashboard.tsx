@@ -534,7 +534,7 @@ function DisasterCard({ event, onClose }: { event: LiveEvent; onClose: () => voi
   };
   const accent = HCOLORS[event.hazardType] ?? "#94a3b8";
   return (
-    <div className="pointer-events-auto absolute right-5 bottom-36 z-20 w-[270px] glass-panel overflow-hidden anim-fade-up anim-breathe relative">
+    <div className="pointer-events-auto absolute bottom-24 right-[470px] z-20 w-[270px] overflow-hidden glass-panel anim-fade-up anim-breathe max-xl:hidden">
       {/* Accent top glow */}
       <div
         className="absolute inset-x-0 top-0 h-[1.5px]"
@@ -1401,7 +1401,7 @@ export function Dashboard() {
       <InfoTooltip />
       <button
         onClick={() => setControlsOpen(true)}
-        className="pointer-events-auto absolute bottom-5 left-5 z-20 min-h-11 rounded-xl border border-white/10 bg-black/40 px-4 text-xs text-white/70 backdrop-blur-lg hover:bg-white/10"
+        className="pointer-events-auto absolute bottom-20 left-5 z-20 min-h-11 rounded-xl border border-white/10 bg-black/40 px-4 text-xs text-white/70 backdrop-blur-lg hover:bg-white/10"
       >
         Scenario controls
       </button>

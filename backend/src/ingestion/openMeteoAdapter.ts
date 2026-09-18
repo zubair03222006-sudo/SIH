@@ -60,7 +60,7 @@ export class OpenMeteoAdapter implements SourceAdapter {
         events.push({
           id: `openmeteo-rain-${date}`,
           source: "Open-Meteo",
-          sourceAgency: "GFS-derived",
+          sourceAgency: "Open-Meteo best-match forecast",
           hazardType: "heavy_rain",
           title: "Model Forecast: Heavy Rain",
           location: "Central India Region",
@@ -83,7 +83,7 @@ export class OpenMeteoAdapter implements SourceAdapter {
         events.push({
           id: `openmeteo-wind-${date}`,
           source: "Open-Meteo",
-          sourceAgency: "GFS-derived",
+          sourceAgency: "Open-Meteo best-match forecast",
           hazardType: "storm",
           title: "Model Forecast: Severe Wind Gusts",
           location: "Central India Region",

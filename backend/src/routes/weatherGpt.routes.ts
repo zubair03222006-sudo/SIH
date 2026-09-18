@@ -1,180 +1,156 @@
 import { Router } from "express";
-import { pollingService } from "../jobs/sourcePolling.js";
-import { WEATHER_GPT_SYSTEM_PROMPT } from "../services/weatherGptPrompt.js";
-import { getWeatherByLocation, formatWeatherForLLM } from "../services/openMeteo.js";
+import { getWeatherByLocation } from "../services/openMeteo.js";
+import {
+  buildGroundedAnswer,
+  createAdvisory,
+  parseWeatherIntent,
+  summarizeForecast,
+  WeatherLanguage,
+} from "../services/weatherGptEngine.js";
 
 const router = Router();
 
-router.post("/chat", async (req, res) => {
-  try {
-    const { message, history, locationContext } = req.body;
+const MESSAGES: Record<WeatherLanguage, { location: string; unavailable: string }> = {
+  "en-IN": {
+    location: "Please include an Indian city or place in your weather question.",
+    unavailable: "Current forecast data is unavailable, so I cannot provide weather values or an advisory right now.",
+  },
+  "hi-IN": {
+    location: "कृपया अपने मौसम प्रश्न में भारत का शहर या स्थान लिखें।",
+    unavailable: "वर्तमान पूर्वानुमान डेटा उपलब्ध नहीं है, इसलिए मैं अभी मौसम के आंकड़े या सलाह नहीं दे सकता।",
+  },
+  "te-IN": {
+    location: "దయచేసి మీ వాతావరణ ప్రశ్నలో భారతీయ నగరం లేదా ప్రదేశాన్ని పేర్కొనండి.",
+    unavailable: "ప్రస్తుత అంచనా డేటా అందుబాటులో లేదు. అందువల్ల ఇప్పుడు వాతావరణ విలువలు లేదా సలహా ఇవ్వలేను.",
+  },
+};
 
-    if (!message) {
-      res.status(400).json({ error: "Missing prompt 'message'." });
+async function getOptionalLlmExplanation(
+  language: WeatherLanguage,
+  evidence: unknown,
+  recommendation: string,
+): Promise<{ used: boolean; provider: string | null; explanation: string | null }> {
+  const googleKey = process.env.GOOGLE_API_KEY;
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const provider = googleKey ? "google" : openRouterKey ? "openrouter" : null;
+  if (!provider) return { used: false, provider: null, explanation: null };
+
+  const endpoint = provider === "google"
+    ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+    : "https://openrouter.ai/api/v1/chat/completions";
+  const apiKey = provider === "google" ? googleKey : openRouterKey;
+  const model = provider === "google"
+    ? "gemini-2.5-flash"
+    : process.env.OPENROUTER_MODEL || "meta-llama/llama-3.1-70b-instruct";
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        temperature: 0,
+        max_tokens: 100,
+        messages: [
+          {
+            role: "system",
+            content: `Explain the supplied rule-based recommendation in one short sentence in ${language}. Use only the supplied evidence. Do not introduce any number, measurement, date, forecast claim, or new advice.`,
+          },
+          { role: "user", content: JSON.stringify({ evidence, recommendation }) },
+        ],
+      }),
+    });
+    if (!response.ok) return { used: false, provider, explanation: null };
+    const data = await response.json();
+    const explanation = String(data.choices?.[0]?.message?.content ?? "").trim();
+    // Measurements and all factual values remain deterministic. Reject LLM text
+    // containing digits or measurement symbols rather than risking fabrication.
+    if (!explanation || explanation.length > 400 || /[\d%°]/u.test(explanation)) {
+      return { used: false, provider, explanation: null };
+    }
+    return { used: true, provider, explanation };
+  } catch {
+    return { used: false, provider, explanation: null };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+router.post("/chat", async (req, res) => {
+  const { message, language, simulateProviderFailure } = req.body ?? {};
+  if (typeof message !== "string" || !message.trim()) {
+    res.status(400).json({ error: "A non-empty 'message' is required." });
+    return;
+  }
+
+  const intent = parseWeatherIntent(message, language);
+  if (!intent.locationQuery) {
+    res.status(422).json({
+      error: MESSAGES[intent.language].location,
+      code: "LOCATION_REQUIRED",
+      language: intent.language,
+    });
+    return;
+  }
+
+  const forcedFailure = process.env.WEATHERGPT_FORCE_PROVIDER_FAILURE === "true"
+    || (process.env.NODE_ENV !== "production" && simulateProviderFailure === true);
+  if (forcedFailure) {
+    res.status(503).json({
+      error: MESSAGES[intent.language].unavailable,
+      code: "WEATHER_UNAVAILABLE",
+      language: intent.language,
+    });
+    return;
+  }
+
+  try {
+    const weather = await getWeatherByLocation(intent.locationQuery, "gfs");
+    if (!weather) {
+      res.status(503).json({
+        error: MESSAGES[intent.language].unavailable,
+        code: "WEATHER_UNAVAILABLE",
+        language: intent.language,
+      });
       return;
     }
 
-    // Retrieve live cached events to construct real-time context for LLM
-    const activeEvents = pollingService.getEvents();
-    const indiaEvents = activeEvents.filter(e => 
-      e.state || (e.latitude >= 6 && e.latitude <= 37 && e.longitude >= 68 && e.longitude <= 98)
-    );
-
-    const contextSummary = indiaEvents.map(e => 
-      `- [${e.severity}] ${e.source} (${e.hazardType}): ${e.title} @ ${e.location || 'India'} (Lat: ${e.latitude}, Lon: ${e.longitude})`
-    ).join("\n");
-
-    // ── Proactive Open-Meteo weather fetch ──────────────────────────────────
-    // Try to extract a location name from the user message and fetch weather
-    let openMeteoContext = "";
-    try {
-      // Simple heuristic: extract location keywords after "in", "for", "at", or use the full message
-      const locMatch = message.match(/(?:in|for|at|of|near)\s+([A-Z][a-zA-Z\s,]+?)(?:\?|$|\.|\!|,\s*(?:and|or|what|how|will|is|are|do|can))/i);
-      const locationGuess = locMatch ? locMatch[1].trim() : null;
-      
-      if (locationGuess && locationGuess.length >= 3 && locationGuess.length <= 60) {
-        const weatherData = await getWeatherByLocation(locationGuess);
-        if (weatherData) {
-          openMeteoContext = `\n\n============================================================\nLIVE OPEN-METEO WEATHER DATA FOR USER QUERY:\n============================================================\n${formatWeatherForLLM(weatherData)}`;
-        }
-      }
-    } catch (weatherErr) {
-      console.warn("[WeatherGPT] Open-Meteo proactive fetch failed:", weatherErr);
+    const summary = summarizeForecast(weather, intent);
+    if (!summary) {
+      res.status(503).json({
+        error: MESSAGES[intent.language].unavailable,
+        code: "FORECAST_WINDOW_UNAVAILABLE",
+        language: intent.language,
+      });
+      return;
     }
 
-    const fullSystemPrompt = `${WEATHER_GPT_SYSTEM_PROMPT}
-
-============================================================
-LIVE ACTIVE INDIA DISASTER & WEATHER EVENTS CONTEXT:
-============================================================
-${contextSummary.length > 0 ? contextSummary : "No critical live warnings currently active."}
-${openMeteoContext}
-${locationContext ? `User Current Location Context: ${JSON.stringify(locationContext)}` : ""}
-`;
-
-
-    const googleKey = process.env.GOOGLE_API_KEY || "";
-    const openRouterKey = process.env.OPENROUTER_API_KEY;
-
-    let responseText = "";
-
-    if (googleKey) {
-      const googleRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${googleKey}`
-        },
-        body: JSON.stringify({
-          model: "gemini-2.5-flash",
-          messages: [
-            { role: "system", content: fullSystemPrompt },
-            ...(Array.isArray(history) ? history : []),
-            { role: "user", content: message }
-          ],
-          temperature: 0.3,
-          max_tokens: 1024
-        })
-      }).catch(() => null);
-
-      if (googleRes && googleRes.ok) {
-        const googleData = await googleRes.json();
-        responseText = googleData.choices?.[0]?.message?.content || "";
-      }
-    }
-
-    if (!responseText && openRouterKey) {
-      const openRouterRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${openRouterKey}`,
-          "HTTP-Referer": "http://localhost:3000",
-          "X-Title": "Sentinel WeatherGPT"
-        },
-        body: JSON.stringify({
-          model: "meta-llama/llama-3.1-70b-instruct",
-          messages: [
-            { role: "system", content: fullSystemPrompt },
-            ...(Array.isArray(history) ? history : []),
-            { role: "user", content: message }
-          ],
-          temperature: 0.3
-        })
-      }).catch(() => null);
-
-      if (openRouterRes && openRouterRes.ok) {
-        const data = await openRouterRes.json();
-        responseText = data.choices?.[0]?.message?.content || "";
-      }
-    }
-
-    // Heuristic Fallback if API keys are not provided or remote API fails
-    if (!responseText) {
-      responseText = generateLocalWeatherGptResponse(message, indiaEvents);
-    }
+    const locationLabel = [weather.location.name, weather.location.admin1, weather.location.country].filter(Boolean).join(", ");
+    const advisory = createAdvisory(intent, summary.evidence);
+    const answer = buildGroundedAnswer(intent, locationLabel, summary, summary.evidence, advisory);
+    const llm = await getOptionalLlmExplanation(intent.language, summary.evidence, advisory.recommendation);
 
     res.json({
-      reply: responseText,
-      activeEventsCount: indiaEvents.length,
-      timestamp: new Date().toISOString()
+      answer: llm.explanation ? `${answer}\n\n${llm.explanation}` : answer,
+      language: intent.language,
+      intent: { dayOffset: intent.dayOffset, period: intent.period, advisoryType: intent.advisoryType },
+      location: { ...weather.location, label: locationLabel },
+      forecastWindow: { date: summary.date, startTime: summary.startTime, endTime: summary.endTime, timezone: weather.timezone },
+      evidence: summary.evidence,
+      advisory,
+      provenance: weather.provider,
+      llm,
     });
-
-  } catch (err: any) {
-    console.error("[WeatherGPT Route Error]:", err);
-    res.status(500).json({ error: `WeatherGPT service error: ${err.message}` });
+  } catch (error) {
+    console.error("[WeatherGPT] Grounded request failed:", error);
+    res.status(503).json({
+      error: MESSAGES[intent.language].unavailable,
+      code: "WEATHER_UNAVAILABLE",
+      language: intent.language,
+    });
   }
 });
-
-function generateLocalWeatherGptResponse(userMsg: string, events: any[]): string {
-  const query = userMsg.toLowerCase();
-
-  const matchingEvents = events.filter(e => 
-    query.includes(e.hazardType) || 
-    (e.state && query.includes(e.state.toLowerCase())) ||
-    (e.district && query.includes(e.district.toLowerCase())) ||
-    (e.location && query.includes(e.location.toLowerCase()))
-  );
-
-  if (matchingEvents.length > 0) {
-    const primary = matchingEvents[0];
-    return `### 🚨 **WeatherGPT Alert Summary: ${primary.title}**
-
-**Source Agency**: ${primary.sourceAgency || primary.source}  
-**Severity**: ${primary.severity}  
-**Location**: ${primary.location || 'India'}  
-**Coordinates**: Lat ${primary.latitude}, Lon ${primary.longitude}  
-
-#### **Current Situation & Instructions:**
-${primary.instructions ? primary.instructions.map((ins: string) => `- ${ins}`).join("\n") : "- Follow local authority advisories and NDMA guidelines."}
-
-#### **Emergency Contacts:**
-- National Emergency (NDMA): **1070**
-- State / District Control Room: **1077**
-- National Emergency Response Support System: **112**`;
-  }
-
-  if (query.includes("rain") || query.includes("flood") || query.includes("weather")) {
-    return `### 🌧️ **WeatherGPT Indian Weather & Flood Intelligence**
-
-Currently tracking **${events.length} active multi-hazard advisories** across India.
-
-- **CWC River Monitoring**: Active flood gauges in Brahmaputra (Assam), Ganga (Bihar/UP), and Yamuna basins.
-- **IMD District Warnings**: Monitoring heavy rainfall in Western Ghats & North-East states.
-- **INCOIS Advisories**: Monitoring high wave & swell surge conditions along coastal belts.
-
-*Ask WeatherGPT for specific state/district advisories or emergency evacuation guidance.*`;
-  }
-
-  return `### 🛡️ **Sentinel WeatherGPT India**
-
-I am monitoring **${events.length} live disaster alerts** across Indian states, river basins, coastal waters, and satellite observations.
-
-You can ask me:
-- *"Show active flood warnings in Assam or Bihar"*
-- *"What is the weather alert for Kerala or Wayanad?"*
-- *"Are there active forest fires detected in Western Ghats?"*
-- *"Give emergency response steps for heavy rain in Mumbai"*`;
-}
 
 export default router;

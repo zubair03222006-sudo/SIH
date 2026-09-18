@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -23,8 +23,6 @@ import { useMarkersStore } from "../../hooks/useMarkersStore";
 import { useSelectionStore } from "../../hooks/useSelectionStore";
 import { LiveEvent } from "../../lib/api/live-data";
 import type { Marker } from "../../hooks/useMarkersStore";
-
-
 
 /* ─── Hazard Icon Renderer ─────────────────────────────────────────────────── */
 
@@ -59,7 +57,6 @@ function HazardIcon({ hazardType }: { hazardType: string }) {
 
 /* ─── Disaster Event Badge Marker ──────────────────────────────────────────── */
 
-
 // Pre-allocated vector reusable objects to avoid per-frame GC allocations
 const _tempNormal = new THREE.Vector3();
 const _tempToCam = new THREE.Vector3();
@@ -81,7 +78,7 @@ function DisasterBadgeMarker({
   const [visible, setVisible] = useState(true);
   const { camera } = useThree();
   const pos = latLngToVec3(coords[0], coords[1], radius * 1.015);
-  const posVec = useMemo(() => new THREE.Vector3(...pos), [pos[0], pos[1], pos[2]]);
+  const posVec = pos;
 
   // Efficient per-frame front-face visibility check without garbage collection or Raycaster overhead
   useFrame(() => {
@@ -115,11 +112,7 @@ function DisasterBadgeMarker({
 
   return (
     <group position={pos}>
-      <Html
-        center
-        distanceFactor={3}
-        className="pointer-events-auto select-none"
-      >
+      <Html center distanceFactor={3} className="pointer-events-auto select-none">
         <div className="relative flex flex-col items-center">
           {/* Minimal dot-pin marker */}
           <button
@@ -143,10 +136,12 @@ function DisasterBadgeMarker({
           </button>
 
           {/* Hover Info Tooltip (hide if selected to avoid double panel) */}
-          {(hovered && !isSelected) && (
+          {hovered && !isSelected && (
             <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-50 w-48 p-2 rounded-xl bg-slate-950/90 backdrop-blur-md border border-white/20 text-white shadow-2xl pointer-events-none text-left">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className={`h-1.5 w-1.5 rounded-full ${event.dot || (isCritical ? "bg-red-500" : "bg-amber-400")}`} />
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${event.dot || (isCritical ? "bg-red-500" : "bg-amber-400")}`}
+                />
                 <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">
                   {event.sourceAgency || event.source}
                 </span>
@@ -157,9 +152,7 @@ function DisasterBadgeMarker({
               <div className="text-[11px] font-bold leading-tight line-clamp-2 text-white">
                 {event.title}
               </div>
-              <div className="text-[9px] text-white/60 mt-1 truncate">
-                📍 {event.location}
-              </div>
+              <div className="text-[9px] text-white/60 mt-1 truncate">📍 {event.location}</div>
               {event.magnitude && (
                 <div className="text-[9px] text-amber-300 font-medium mt-0.5">
                   ⚡ {event.magnitude} {event.magnitudeUnit || ""}
@@ -240,7 +233,10 @@ export function Markers({ radius }: { radius: number }) {
   return (
     <group>
       {events.map((e) => {
-        const coords: [number, number] = [e.coords?.[0] ?? e.latitude, e.coords?.[1] ?? e.longitude];
+        const coords: [number, number] = [
+          e.coords?.[0] ?? e.latitude,
+          e.coords?.[1] ?? e.longitude,
+        ];
         return (
           <DisasterBadgeMarker
             key={e.id}

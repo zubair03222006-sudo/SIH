@@ -11,7 +11,7 @@ const router = Router();
  * POST /api/weather/lookup
  * Body: { location: string } OR { lat: number, lng: number }
  *
- * Returns current weather + 7-day forecast from Open-Meteo.
+ * Returns current, hourly and 7-day NOAA GFS forecast data via Open-Meteo.
  */
 router.post("/lookup", async (req, res) => {
   try {
@@ -45,8 +45,11 @@ router.post("/lookup", async (req, res) => {
     res.json({
       success: true,
       location: weatherData.location,
+      timezone: weatherData.timezone,
       current: weatherData.current,
+      hourly: weatherData.hourly,
       daily: weatherData.daily,
+      provider: weatherData.provider,
       formatted,
       fetchedAt: weatherData.fetchedAt,
     });

@@ -36,6 +36,36 @@ export class SourcePollingJob {
     return this.events;
   }
 
+  private safeEvents(adapter: SourceAdapter, events: DisasterEvent[]): DisasterEvent[] {
+    if (!adapter.getHealth().isDemoFallback) return events;
+    if (process.env.ALLOW_DEMO_DATA !== "true") return [];
+    return events.map((event) => ({
+      ...event,
+      title: `[SIMULATED / DEMO DATA] ${event.title}`,
+      source: `SIMULATED / DEMO DATA — ${event.source}`,
+      sourceAgency: "SIMULATED / DEMO DATA",
+      verificationStatus: "ai_estimate",
+      issuedAt: undefined,
+      observedAt: undefined,
+      validUntil: undefined,
+      description: "Synthetic scenario record. This is not a live or official warning.",
+    }));
+  }
+
+  private belongsToAdapter(event: DisasterEvent, adapter: SourceAdapter): boolean {
+    const sourcesByAdapter: Record<string, string[]> = {
+      "USGS Earthquakes": ["USGS"],
+      "NASA EONET": ["NASA EONET"],
+      "SACHET (NDMA India)": ["SACHET"],
+      "Open-Meteo Forecast": ["Open-Meteo"],
+      "CWC (Central Water Commission India)": ["CWC"],
+      "IMD (India Meteorological Department)": ["IMD"],
+      "INCOIS (Indian National Centre for Ocean Information Services)": ["INCOIS"],
+      "NASA FIRMS / Satellite Hotspots (India)": ["FIRMS"],
+    };
+    return (sourcesByAdapter[adapter.name] ?? []).some((source) => event.source.endsWith(source));
+  }
+
   public async fetchAll(): Promise<void> {
     console.log("[SourcePollingJob] Fetching from all adapters...");
     try {
@@ -44,7 +74,7 @@ export class SourcePollingJob {
       const newEvents: DisasterEvent[] = [];
       results.forEach((res, i) => {
         if (res.status === "fulfilled") {
-          newEvents.push(...res.value);
+          newEvents.push(...this.safeEvents(this.adapters[i], res.value));
         } else {
           console.error(`[SourcePollingJob] Adapter ${this.adapters[i].name} failed:`, res.reason);
         }
@@ -95,12 +125,12 @@ export class SourcePollingJob {
     const results = await Promise.allSettled(targets.map(a => a.fetch()));
     
     // Merge new results with existing events from OTHER adapters
-    const otherEvents = this.events.filter(e => !adapterNames.includes(e.source));
+    const otherEvents = this.events.filter((event) => !targets.some((adapter) => this.belongsToAdapter(event, adapter)));
     const newEvents: DisasterEvent[] = [];
     
-    results.forEach(res => {
+    results.forEach((res, index) => {
       if (res.status === "fulfilled") {
-        newEvents.push(...res.value);
+        newEvents.push(...this.safeEvents(targets[index], res.value));
       }
     });
 

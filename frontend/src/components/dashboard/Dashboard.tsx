@@ -3,7 +3,14 @@ import { useEventsStore } from "../../hooks/useEventsStore";
 import { useRoutesStore } from "../../hooks/useRoutesStore";
 import { useMarkersStore } from "../../hooks/useMarkersStore";
 import { useSelectionStore } from "../../hooks/useSelectionStore";
-import { nearestCity, ROUTE_COLORS, KIND_COLORS, GEO_LOOKUP, type RouteKind, type MarkerKind } from "../globe/geo";
+import {
+  nearestCity,
+  ROUTE_COLORS,
+  KIND_COLORS,
+  GEO_LOOKUP,
+  type RouteKind,
+  type MarkerKind,
+} from "../globe/geo";
 import { LiveEvent } from "../../lib/api/live-data";
 import { AgentChatBox } from "./AgentChatBox";
 import {
@@ -87,7 +94,9 @@ function TopNav() {
         <div className="h-4 w-px bg-white/[0.06] hidden md:block" />
 
         {/* Time */}
-        <div className="hidden sm:block tabular-nums tracking-wider text-[11px] text-white/50">{time}</div>
+        <div className="hidden sm:block tabular-nums tracking-wider text-[11px] text-white/50">
+          {time}
+        </div>
 
         <div className="h-4 w-px bg-white/[0.06] hidden sm:block" />
 
@@ -136,7 +145,9 @@ function LiveEvents({
           <Activity className="h-3 w-3 text-sky-400/60" /> LIVE EVENTS
         </div>
         <div className="flex items-center gap-2">
-          <span className="glass-chip px-2 py-0.5 text-[9px] text-white/50 tabular-nums">{events.length} active</span>
+          <span className="glass-chip px-2 py-0.5 text-[9px] text-white/50 tabular-nums">
+            {events.length} active
+          </span>
           <button
             onClick={() => setMinimized(true)}
             className="rounded-lg p-1 text-white/35 hover:bg-white/[0.06] hover:text-white/60 transition-colors"
@@ -156,27 +167,41 @@ function LiveEvents({
               onClick={() => {
                 onSelect(e.id);
               }}
-              className={`w-full rounded-2xl text-left transition-all duration-280 ${open
+              className={`w-full rounded-2xl text-left transition-all duration-280 ${
+                open
                   ? "glass-chip !border-white/[0.1] !bg-white/[0.05]"
                   : "bg-transparent hover:bg-white/[0.03] border border-transparent"
-                }`}
+              }`}
             >
               <div className="flex items-center gap-2.5 px-3 py-2">
-                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${e.dot} ${e.color} glow-dot`} />
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${e.dot} ${e.color} glow-dot`}
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="truncate text-[12px] font-semibold text-white/90">{e.title}</span>
-                    <span className={`shrink-0 text-[9px] font-medium ${e.color}`}>{e.severity}</span>
+                    <span className="truncate text-[12px] font-semibold text-white/90">
+                      {e.title}
+                    </span>
+                    <span className={`shrink-0 text-[9px] font-medium ${e.color}`}>
+                      {e.severity}
+                    </span>
                   </div>
                   <div className="truncate text-[10px] text-white/35 mt-0.5">{e.location}</div>
                 </div>
               </div>
               <div
-                className={`grid grid-cols-3 gap-1.5 overflow-hidden px-2.5 transition-all duration-280 ${open ? "max-h-28 pb-2.5 opacity-100" : "max-h-0 opacity-0"
-                  }`}
+                className={`grid grid-cols-3 gap-1.5 overflow-hidden px-2.5 transition-all duration-280 ${
+                  open ? "max-h-28 pb-2.5 opacity-100" : "max-h-0 opacity-0"
+                }`}
               >
                 <Metric
-                  label={e.hazardType === "wildfire" ? "Area" : e.hazardType === "storm" ? "Wind" : "Magnitude"}
+                  label={
+                    e.hazardType === "wildfire"
+                      ? "Area"
+                      : e.hazardType === "storm"
+                        ? "Wind"
+                        : "Magnitude"
+                  }
                   value={e.magnitude !== "—" ? `${e.magnitude} ${e.magnitudeUnit}`.trim() : "—"}
                 />
                 <Metric label="Detected" value={e.detected ?? "—"} />
@@ -219,36 +244,66 @@ const aiFeed = [
 ];
 
 const getAiSteps = (hazardType: string) => {
-  const base = ["Imagery scan", "Historical comparison", "Impact prediction", "Resource routing", "Evacuation path"];
-  if (hazardType === "wildfire") return ["Thermal imagery scan", "Wind speed modeling", "Fuel index loading", "Containment routing", "Evacuation modeling"];
-  if (hazardType === "storm") return ["Radar Doppler tracking", "Barometric pressure scan", "Storm surge forecast", "Shelter capacity check", "Corridor clearing"];
-  if (hazardType === "flood") return ["Elevation hydro-mapping", "Inundation modeling", "Safe hub validation", "Rescue path generation", "Complete model"];
+  const base = [
+    "Imagery scan",
+    "Historical comparison",
+    "Impact prediction",
+    "Resource routing",
+    "Evacuation path",
+  ];
+  if (hazardType === "wildfire")
+    return [
+      "Thermal imagery scan",
+      "Wind speed modeling",
+      "Fuel index loading",
+      "Containment routing",
+      "Evacuation modeling",
+    ];
+  if (hazardType === "storm")
+    return [
+      "Radar Doppler tracking",
+      "Barometric pressure scan",
+      "Storm surge forecast",
+      "Shelter capacity check",
+      "Corridor clearing",
+    ];
+  if (hazardType === "flood")
+    return [
+      "Elevation hydro-mapping",
+      "Inundation modeling",
+      "Safe hub validation",
+      "Rescue path generation",
+      "Complete model",
+    ];
   return base;
 };
 
 const getAiFeed = (hazardType: string, location: string) => {
   const loc = location.split(",")[0];
-  if (hazardType === "wildfire") return [
-    `Scanning thermal imagery for ${loc}…`,
-    "Calculating fire front rate of spread…",
-    "Assessing wind speed and moisture index…",
-    "Checking shelter availability within 30km…",
-    "Drafting optimal containment zones…",
-  ];
-  if (hazardType === "storm") return [
-    `Analyzing atmospheric pressure at ${loc}…`,
-    "Plotting cone of uncertainty and landfall…",
-    "Estimating storm surge heights…",
-    "Verifying hospital evacuation capacities…",
-    "Synthesizing emergency alerts…",
-  ];
-  if (hazardType === "earthquake") return [
-    `Detecting seismic wave propagation at ${loc}…`,
-    "Comparing historical slip slip patterns…",
-    "Predicting aftershock probability…",
-    "Checking transport corridor blockages…",
-    "Generating optimal rescue routing…",
-  ];
+  if (hazardType === "wildfire")
+    return [
+      `Scanning thermal imagery for ${loc}…`,
+      "Calculating fire front rate of spread…",
+      "Assessing wind speed and moisture index…",
+      "Checking shelter availability within 30km…",
+      "Drafting optimal containment zones…",
+    ];
+  if (hazardType === "storm")
+    return [
+      `Analyzing atmospheric pressure at ${loc}…`,
+      "Plotting cone of uncertainty and landfall…",
+      "Estimating storm surge heights…",
+      "Verifying hospital evacuation capacities…",
+      "Synthesizing emergency alerts…",
+    ];
+  if (hazardType === "earthquake")
+    return [
+      `Detecting seismic wave propagation at ${loc}…`,
+      "Comparing historical slip slip patterns…",
+      "Predicting aftershock probability…",
+      "Checking transport corridor blockages…",
+      "Generating optimal rescue routing…",
+    ];
   return [
     `Scanning multi-spectral imagery at ${loc}…`,
     "Correlating structural risk factors…",
@@ -291,7 +346,9 @@ function AIPanel({ activeEvent }: { activeEvent: LiveEvent | null }) {
         title="Show AI Reasoning"
       >
         <Brain className="h-4.5 w-4.5 text-violet-400 group-hover:scale-110 transition-transform" />
-        <span className={`absolute -right-1 -top-1 flex h-2.5 w-2.5 rounded-full ${complete ? 'bg-emerald-400' : 'bg-sky-400 animate-pulse'} glow-dot`} />
+        <span
+          className={`absolute -right-1 -top-1 flex h-2.5 w-2.5 rounded-full ${complete ? "bg-emerald-400" : "bg-sky-400 animate-pulse"} glow-dot`}
+        />
       </button>
     );
   }
@@ -304,7 +361,10 @@ function AIPanel({ activeEvent }: { activeEvent: LiveEvent | null }) {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="flex items-center gap-1 text-[9px] text-emerald-300/70">
-            <span className={`h-1.5 w-1.5 rounded-full bg-emerald-400 ${complete ? '' : 'animate-pulse'} glow-dot`} style={{ color: '#34d399' }} />
+            <span
+              className={`h-1.5 w-1.5 rounded-full bg-emerald-400 ${complete ? "" : "animate-pulse"} glow-dot`}
+              style={{ color: "#34d399" }}
+            />
             {complete ? "Complete" : "Live"}
           </span>
           <button
@@ -328,16 +388,25 @@ function AIPanel({ activeEvent }: { activeEvent: LiveEvent | null }) {
           return (
             <div key={s} className="flex items-center gap-2.5 text-[11px]">
               <span
-                className={`flex h-3.5 w-3.5 items-center justify-center rounded-full transition-all duration-280 text-[8px] ${isDone
+                className={`flex h-3.5 w-3.5 items-center justify-center rounded-full transition-all duration-280 text-[8px] ${
+                  isDone
                     ? "bg-emerald-400/15 text-emerald-300"
                     : isActive
                       ? "bg-sky-400/10 text-sky-300 ring-1 ring-sky-400/30"
                       : "bg-white/[0.04] text-white/20"
-                  }`}
+                }`}
               >
-                {isDone ? "✓" : isActive ? <Circle className="h-1.5 w-1.5 animate-pulse fill-current" /> : ""}
+                {isDone ? (
+                  "✓"
+                ) : isActive ? (
+                  <Circle className="h-1.5 w-1.5 animate-pulse fill-current" />
+                ) : (
+                  ""
+                )}
               </span>
-              <span className={`transition-colors duration-200 ${isDone ? "text-white/75 font-medium" : isActive ? "text-white/60" : "text-white/25"}`}>
+              <span
+                className={`transition-colors duration-200 ${isDone ? "text-white/75 font-medium" : isActive ? "text-white/60" : "text-white/25"}`}
+              >
                 {s}
               </span>
             </div>
@@ -387,8 +456,11 @@ function LayerToggles() {
             <button
               key={l.id}
               onClick={() => setOn((p) => ({ ...p, [l.id]: !p[l.id] }))}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-medium transition-all duration-200 ${active ? "bg-white/[0.08] text-white/90 shadow-sm" : "text-white/40 hover:bg-white/[0.04] hover:text-white/70"
-                }`}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-medium transition-all duration-200 ${
+                active
+                  ? "bg-white/[0.08] text-white/90 shadow-sm"
+                  : "text-white/40 hover:bg-white/[0.04] hover:text-white/70"
+              }`}
             >
               <Icon className="h-3 w-3" />
               {l.label}
@@ -429,62 +501,41 @@ function getMagnitudeLabel(event: LiveEvent): string {
 }
 
 function getHazardRows(event: LiveEvent) {
-  const locName = event.location.split(",")[0];
-  const base = [
-    { icon: Building2, label: "Nearest shelter", value: `${nearestCity(event.coords[0], event.coords[1])} Emergency Hub` },
-    { icon: Clock, label: "Evacuation time", value: event.severity === "Critical" ? "1.5 hrs (Immediate)" : event.severity === "High" ? "3.2 hrs (Planned)" : "Not active" },
-    { icon: Radar, label: "Route", value: event.severity === "Critical" ? "Evacuation active" : "Routes monitored" },
-    { icon: Shield, label: "Hospital capacity", value: event.severity === "Critical" ? "91% (Critical)" : "42% (Nominal)" },
-    { icon: Users, label: "Population", value: event.affected === "—" ? (event.severity === "Critical" ? "650,000" : "180,000") : event.affected },
-  ];
-
-  if (event.hazardType === "earthquake") {
-    return [
-      { icon: Zap, label: "Magnitude", value: getMagnitudeLabel(event) },
-      { icon: Layers, label: "Depth", value: "10 km" },
-      { icon: Waves, label: "Tsunami risk", value: event.severity === "Critical" ? "High" : "Low" },
-      ...base,
-    ];
-  }
-  if (event.hazardType === "wildfire") {
-    return [
-      { icon: Flame, label: "Area burned", value: getMagnitudeLabel(event) },
-      { icon: ThermometerSun, label: "Risk level", value: event.severity },
-      { icon: Waves, label: "Spread direction", value: "NNE" },
-      ...base,
-    ];
-  }
-  if (event.hazardType === "storm") {
-    return [
-      { icon: Zap, label: "Wind speed", value: getMagnitudeLabel(event) },
-      { icon: Waves, label: "Storm surge", value: event.severity === "Critical" ? "Extreme" : "Moderate" },
-      { icon: Cloud, label: "Category", value: event.severity },
-      ...base,
-    ];
-  }
-  if (event.hazardType === "volcano") {
-    return [
-      { icon: Zap, label: "Alert level", value: event.severity },
-      { icon: Layers, label: "Ash plume", value: "High altitude" },
-      { icon: Waves, label: "Lava flow", value: "Active tracking" },
-      ...base,
-    ];
-  }
   return [
-    { icon: Zap, label: "Intensity", value: getMagnitudeLabel(event) },
-    { icon: Waves, label: "Risk", value: event.severity },
-    ...base,
+    { icon: Zap, label: "Reported value", value: getMagnitudeLabel(event) },
+    { icon: AlertTriangle, label: "Severity", value: event.severity },
+    { icon: Radar, label: "Hazard", value: event.hazardType.replaceAll("_", " ") },
+    {
+      icon: Clock,
+      label: "Observed / issued",
+      value: event.observedAt || event.issuedAt || "Not provided",
+    },
+    { icon: Shield, label: "Verification", value: event.verificationStatus || "Not provided" },
+    {
+      icon: MapPin,
+      label: "Coordinates",
+      value: `${event.coords[0].toFixed(2)}, ${event.coords[1].toFixed(2)}`,
+    },
   ];
 }
 
 function DisasterCard({ event, onClose }: { event: LiveEvent; onClose: () => void }) {
   const rows = getHazardRows(event);
   const HCOLORS: Record<string, string> = {
-    earthquake: "#ef4444", heavy_rain: "#3b82f6", flood: "#0284c7",
-    landslide: "#b45309", cyclone: "#8b5cf6", wildfire: "#f97316",
-    lightning: "#eab308", thunderstorm: "#f59e0b", tsunami: "#06b6d4",
-    heatwave: "#dc2626", avalanche: "#e0f2fe", storm: "#a855f7",
-    volcano: "#f43f5e", other: "#94a3b8",
+    earthquake: "#ef4444",
+    heavy_rain: "#3b82f6",
+    flood: "#0284c7",
+    landslide: "#b45309",
+    cyclone: "#8b5cf6",
+    wildfire: "#f97316",
+    lightning: "#eab308",
+    thunderstorm: "#f59e0b",
+    tsunami: "#06b6d4",
+    heatwave: "#dc2626",
+    avalanche: "#e0f2fe",
+    storm: "#a855f7",
+    volcano: "#f43f5e",
+    other: "#94a3b8",
   };
   const accent = HCOLORS[event.hazardType] ?? "#94a3b8";
   return (
@@ -503,7 +554,10 @@ function DisasterCard({ event, onClose }: { event: LiveEvent; onClose: () => voi
           <span className="glass-chip px-1.5 py-0.5 text-[8px] text-white/30 uppercase tracking-wider !rounded-lg">
             {event.source ?? "Live"}
           </span>
-          <button onClick={onClose} className="rounded-lg p-1 text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/60">
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/60"
+          >
             <X className="h-3 w-3" />
           </button>
         </div>
@@ -516,7 +570,9 @@ function DisasterCard({ event, onClose }: { event: LiveEvent; onClose: () => voi
               <r.icon className="h-2.5 w-2.5" />
               {r.label.toUpperCase()}
             </div>
-            <div className="mt-0.5 text-[11px] text-white/85 tabular-nums font-medium">{r.value}</div>
+            <div className="mt-0.5 text-[11px] text-white/85 tabular-nums font-medium">
+              {r.value}
+            </div>
           </div>
         ))}
       </div>
@@ -558,18 +614,18 @@ function Timeline({ activeEvent }: { activeEvent: LiveEvent | null }) {
           return (
             <div key={t.label} className="flex items-center">
               <div
-                className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-medium transition-all duration-280 ${reached
-                    ? "bg-emerald-400/10 text-emerald-200"
-                    : "text-white/25"
-                  } ${active ? "bg-emerald-400/15 shadow-[0_0_12px_rgba(52,211,153,0.1)]" : ""}`}
+                className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-medium transition-all duration-280 ${
+                  reached ? "bg-emerald-400/10 text-emerald-200" : "text-white/25"
+                } ${active ? "bg-emerald-400/15 shadow-[0_0_12px_rgba(52,211,153,0.1)]" : ""}`}
               >
                 <t.icon className="h-2.5 w-2.5" />
                 <span className="tracking-wide hidden sm:inline">{t.label}</span>
               </div>
               {i < timeline.length - 1 && (
                 <div
-                  className={`mx-0.5 h-px w-4 transition-colors duration-280 ${reached ? "bg-emerald-300/30" : "bg-white/[0.06]"
-                    }`}
+                  className={`mx-0.5 h-px w-4 transition-colors duration-280 ${
+                    reached ? "bg-emerald-300/30" : "bg-white/[0.06]"
+                  }`}
                 />
               )}
             </div>
@@ -587,10 +643,10 @@ const actions = [
   { id: "report", label: "Generate Report", icon: FileText, accent: "text-white/70" },
 ];
 
-function ActionBar({ 
-  onOpenControls, 
-  onTriggerAction 
-}: { 
+function ActionBar({
+  onOpenControls,
+  onTriggerAction,
+}: {
   onOpenControls: () => void;
   onTriggerAction: (msg: string) => void;
 }) {
@@ -608,7 +664,9 @@ function ActionBar({
               } else if (a.id === "shelters") {
                 onTriggerAction("Safe shelter locations overlay activated on orbital command.");
               } else if (a.id === "report") {
-                onTriggerAction("Disaster intelligence summary report compiled and ready for export.");
+                onTriggerAction(
+                  "Disaster intelligence summary report compiled and ready for export.",
+                );
               }
             }}
             className="group flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[11px] text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
@@ -617,8 +675,10 @@ function ActionBar({
             <span className="hidden sm:inline font-medium">{a.label}</span>
           </button>
         ))}
-        <button 
-          onClick={() => onTriggerAction("First responder logistics team dispatched to priority coordinates.")}
+        <button
+          onClick={() =>
+            onTriggerAction("First responder logistics team dispatched to priority coordinates.")
+          }
           className="ml-0.5 flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-4 py-2 text-[11px] font-semibold text-emerald-200 transition-all duration-200 hover:bg-emerald-400/20 hover:shadow-[0_0_16px_rgba(52,211,153,0.1)]"
         >
           <Send className="h-3.5 w-3.5" />
@@ -637,8 +697,8 @@ function ManualControlsModal({
   addMarker,
 }: {
   onClose: () => void;
-  addRoute: any;
-  addMarker: any;
+  addRoute: ReturnType<typeof useRoutesStore>["addRoute"];
+  addMarker: ReturnType<typeof useMarkersStore>["addMarker"];
 }) {
   const [tab, setTab] = useState<"route" | "marker">("route");
 
@@ -735,7 +795,10 @@ function ManualControlsModal({
             <Settings className="h-4 w-4 text-sky-300" />
             <span className="text-sm font-semibold text-white/95">Manual Globe Controls</span>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-white/40 hover:bg-white/5 hover:text-white">
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-white/40 hover:bg-white/5 hover:text-white"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -767,10 +830,12 @@ function ManualControlsModal({
         {tab === "route" ? (
           <form onSubmit={handleSubmitRoute} className="space-y-3.5">
             <div>
-              <label className="text-[10px] tracking-wider text-white/45 block mb-1">ROUTE KIND</label>
+              <label className="text-[10px] tracking-wider text-white/45 block mb-1">
+                ROUTE KIND
+              </label>
               <select
                 value={routeKind}
-                onChange={(e) => setRouteKind(e.target.value as any)}
+                onChange={(e) => setRouteKind(e.target.value as RouteKind)}
                 className="w-full glass-input px-3 py-2 text-[12px] text-white/80"
               >
                 <option value="supply">Supply Arc (Blue)</option>
@@ -796,23 +861,35 @@ function ManualControlsModal({
             {!useCustomRoute ? (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] tracking-wider text-white/45 block mb-1">ORIGIN CITY</label>
+                  <label className="text-[10px] tracking-wider text-white/45 block mb-1">
+                    ORIGIN CITY
+                  </label>
                   <select
                     value={routeFromCity}
                     onChange={(e) => setRouteFromCity(e.target.value)}
                     className="w-full glass-input px-3 py-2 text-[12px] text-white/80"
                   >
-                    {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                    {cities.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] tracking-wider text-white/45 block mb-1">DESTINATION CITY</label>
+                  <label className="text-[10px] tracking-wider text-white/45 block mb-1">
+                    DESTINATION CITY
+                  </label>
                   <select
                     value={routeToCity}
                     onChange={(e) => setRouteToCity(e.target.value)}
                     className="w-full glass-input px-3 py-2 text-[12px] text-white/80"
                   >
-                    {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                    {cities.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -822,16 +899,22 @@ function ManualControlsModal({
                   <div>
                     <label className="text-[9px] text-white/35 block mb-0.5">FROM LATITUDE</label>
                     <input
-                      type="number" step="any" placeholder="e.g. 17.39"
-                      value={customFrom.lat} onChange={(e) => setCustomFrom(p => ({ ...p, lat: e.target.value }))}
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 17.39"
+                      value={customFrom.lat}
+                      onChange={(e) => setCustomFrom((p) => ({ ...p, lat: e.target.value }))}
                       className="w-full glass-input px-3 py-1.5 text-[12px] text-white"
                     />
                   </div>
                   <div>
                     <label className="text-[9px] text-white/35 block mb-0.5">FROM LONGITUDE</label>
                     <input
-                      type="number" step="any" placeholder="e.g. 78.49"
-                      value={customFrom.lng} onChange={(e) => setCustomFrom(p => ({ ...p, lng: e.target.value }))}
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 78.49"
+                      value={customFrom.lng}
+                      onChange={(e) => setCustomFrom((p) => ({ ...p, lng: e.target.value }))}
                       className="w-full glass-input px-3 py-1.5 text-[12px] text-white"
                     />
                   </div>
@@ -840,16 +923,22 @@ function ManualControlsModal({
                   <div>
                     <label className="text-[9px] text-white/35 block mb-0.5">TO LATITUDE</label>
                     <input
-                      type="number" step="any" placeholder="e.g. 19.08"
-                      value={customTo.lat} onChange={(e) => setCustomTo(p => ({ ...p, lat: e.target.value }))}
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 19.08"
+                      value={customTo.lat}
+                      onChange={(e) => setCustomTo((p) => ({ ...p, lat: e.target.value }))}
                       className="w-full glass-input px-3 py-1.5 text-[12px] text-white"
                     />
                   </div>
                   <div>
                     <label className="text-[9px] text-white/35 block mb-0.5">TO LONGITUDE</label>
                     <input
-                      type="number" step="any" placeholder="e.g. 72.88"
-                      value={customTo.lng} onChange={(e) => setCustomTo(p => ({ ...p, lng: e.target.value }))}
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 72.88"
+                      value={customTo.lng}
+                      onChange={(e) => setCustomTo((p) => ({ ...p, lng: e.target.value }))}
                       className="w-full glass-input px-3 py-1.5 text-[12px] text-white"
                     />
                   </div>
@@ -857,27 +946,36 @@ function ManualControlsModal({
               </div>
             )}
 
-            <button type="submit" className="w-full rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/30 text-sky-200 py-2.5 text-[12px] font-semibold transition-colors mt-2">
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/30 text-sky-200 py-2.5 text-[12px] font-semibold transition-colors mt-2"
+            >
               Draw Route
             </button>
           </form>
         ) : (
           <form onSubmit={handleSubmitMarker} className="space-y-3.5">
             <div>
-              <label className="text-[10px] tracking-wider text-white/45 block mb-1">PIN NAME</label>
+              <label className="text-[10px] tracking-wider text-white/45 block mb-1">
+                PIN NAME
+              </label>
               <input
-                type="text" placeholder="e.g. Command Center, Resource Hub"
-                value={markerName} onChange={(e) => setMarkerName(e.target.value)}
+                type="text"
+                placeholder="e.g. Command Center, Resource Hub"
+                value={markerName}
+                onChange={(e) => setMarkerName(e.target.value)}
                 className="w-full bg-[#0a0d14]/95 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white outline-none"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] tracking-wider text-white/45 block mb-1">PIN KIND</label>
+                <label className="text-[10px] tracking-wider text-white/45 block mb-1">
+                  PIN KIND
+                </label>
                 <select
                   value={markerKind}
-                  onChange={(e) => setMarkerKind(e.target.value as any)}
+                  onChange={(e) => setMarkerKind(e.target.value as MarkerKind)}
                   className="w-full bg-[#0a0d14]/90 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white/80 outline-none"
                 >
                   <option value="safe">Safe Hub (Green)</option>
@@ -887,7 +985,9 @@ function ManualControlsModal({
                 </select>
               </div>
               <div>
-                <label className="text-[10px] tracking-wider text-white/45 block mb-1">LOCATION SOURCE</label>
+                <label className="text-[10px] tracking-wider text-white/45 block mb-1">
+                  LOCATION SOURCE
+                </label>
                 <div className="flex items-center gap-1.5 h-10">
                   <input
                     type="checkbox"
@@ -896,7 +996,10 @@ function ManualControlsModal({
                     onChange={(e) => setUseCustomMarker(e.target.checked)}
                     className="rounded border-white/10 bg-transparent text-sky-500 focus:ring-0"
                   />
-                  <label htmlFor="customMarkerCoords" className="text-[10px] text-white/60 select-none">
+                  <label
+                    htmlFor="customMarkerCoords"
+                    className="text-[10px] text-white/60 select-none"
+                  >
                     Custom Coords
                   </label>
                 </div>
@@ -905,13 +1008,19 @@ function ManualControlsModal({
 
             {!useCustomMarker ? (
               <div>
-                <label className="text-[10px] tracking-wider text-white/45 block mb-1">CITY / REGION</label>
+                <label className="text-[10px] tracking-wider text-white/45 block mb-1">
+                  CITY / REGION
+                </label>
                 <select
                   value={markerCity}
                   onChange={(e) => setMarkerCity(e.target.value)}
                   className="w-full bg-[#0a0d14]/90 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white/80 outline-none"
                 >
-                  {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                  {cities.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
                 </select>
               </div>
             ) : (
@@ -919,23 +1028,32 @@ function ManualControlsModal({
                 <div>
                   <label className="text-[9px] text-white/35 block mb-0.5">LATITUDE</label>
                   <input
-                    type="number" step="any" placeholder="e.g. 17.39"
-                    value={customMarker.lat} onChange={(e) => setCustomMarker(p => ({ ...p, lat: e.target.value }))}
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 17.39"
+                    value={customMarker.lat}
+                    onChange={(e) => setCustomMarker((p) => ({ ...p, lat: e.target.value }))}
                     className="w-full bg-[#0a0d14]/95 border border-white/10 rounded-xl px-3 py-1.5 text-[12px] text-white outline-none"
                   />
                 </div>
                 <div>
                   <label className="text-[9px] text-white/35 block mb-0.5">LONGITUDE</label>
                   <input
-                    type="number" step="any" placeholder="e.g. 78.49"
-                    value={customMarker.lng} onChange={(e) => setCustomMarker(p => ({ ...p, lng: e.target.value }))}
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 78.49"
+                    value={customMarker.lng}
+                    onChange={(e) => setCustomMarker((p) => ({ ...p, lng: e.target.value }))}
                     className="w-full bg-[#0a0d14]/95 border border-white/10 rounded-xl px-3 py-1.5 text-[12px] text-white outline-none"
                   />
                 </div>
               </div>
             )}
 
-            <button type="submit" className="w-full rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/30 text-sky-200 py-2.5 text-[12px] font-semibold transition-colors mt-2">
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/30 text-sky-200 py-2.5 text-[12px] font-semibold transition-colors mt-2"
+            >
               Place Geo Pin
             </button>
           </form>
@@ -956,7 +1074,10 @@ function MemoryModal({ onClose }: { onClose: () => void }) {
             <Brain className="h-4 w-4 text-violet-300" />
             <span className="text-sm text-white/90">Historical Memory</span>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-white/40 hover:bg-white/5 hover:text-white">
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-white/40 hover:bg-white/5 hover:text-white"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -967,7 +1088,10 @@ function MemoryModal({ onClose }: { onClose: () => void }) {
             { y: "2018", t: "Kerala Floods", s: "Aftershock-flood correlation" },
             { y: "2015", t: "Nepal Earthquake", s: "Aftershock data: 47 events" },
           ].map((m) => (
-            <div key={m.t} className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
+            <div
+              key={m.t}
+              className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5"
+            >
               <div className="w-12 text-[11px] tabular-nums text-white/40">{m.y}</div>
               <div className="flex-1">
                 <div className="text-[13px] text-white/90">{m.t}</div>
@@ -985,39 +1109,39 @@ function MemoryModal({ onClose }: { onClose: () => void }) {
 /* ---------- InfoTooltip ---------- */
 
 const HAZARD_EMOJI: Record<string, string> = {
-  earthquake:   "🫨",
-  heavy_rain:   "🌧️",
-  flood:        "🌊",
-  landslide:    "⛰️",
-  cyclone:      "🌀",
-  wildfire:     "🔥",
-  lightning:    "⚡",
+  earthquake: "🫨",
+  heavy_rain: "🌧️",
+  flood: "🌊",
+  landslide: "⛰️",
+  cyclone: "🌀",
+  wildfire: "🔥",
+  lightning: "⚡",
   thunderstorm: "🌩️",
-  tsunami:      "🌊",
-  heatwave:     "☀️",
-  avalanche:    "❄️",
-  storm:        "🌪️",
-  volcano:      "🌋",
-  other:        "⚠️",
+  tsunami: "🌊",
+  heatwave: "☀️",
+  avalanche: "❄️",
+  storm: "🌪️",
+  volcano: "🌋",
+  other: "⚠️",
 };
 
 const ROUTE_EMOJI: Record<string, string> = {
-  rescue:      "🟠",
-  evacuation:  "🔵",
-  supply:      "🟡",
-  airsupport:  "⚪",
-  medical:     "🟢",
-  firefighting:"🔴",
-  flood:       "💧",
-  satellite:   "🔮",
-  neural:      "🧠",
+  rescue: "🟠",
+  evacuation: "🔵",
+  supply: "🟡",
+  airsupport: "⚪",
+  medical: "🟢",
+  firefighting: "🔴",
+  flood: "💧",
+  satellite: "🔮",
+  neural: "🧠",
 };
 
 const KIND_LABEL: Record<string, string> = {
   critical: "Critical Zone",
-  warning:  "Warning Zone",
+  warning: "Warning Zone",
   highrisk: "High-Risk Zone",
-  safe:     "Safe Hub",
+  safe: "Safe Hub",
 };
 
 function InfoTooltip() {
@@ -1039,11 +1163,20 @@ function InfoTooltip() {
 
     const emoji = HAZARD_EMOJI[ev.hazardType] ?? "⚠️";
     const HCOLORS: Record<string, string> = {
-      earthquake: "#ef4444", heavy_rain: "#3b82f6", flood: "#0284c7",
-      landslide: "#b45309", cyclone: "#8b5cf6", wildfire: "#f97316",
-      lightning: "#eab308", thunderstorm: "#f59e0b", tsunami: "#06b6d4",
-      heatwave: "#dc2626", avalanche: "#e0f2fe", storm: "#a855f7",
-      volcano: "#f43f5e", other: "#94a3b8",
+      earthquake: "#ef4444",
+      heavy_rain: "#3b82f6",
+      flood: "#0284c7",
+      landslide: "#b45309",
+      cyclone: "#8b5cf6",
+      wildfire: "#f97316",
+      lightning: "#eab308",
+      thunderstorm: "#f59e0b",
+      tsunami: "#06b6d4",
+      heatwave: "#dc2626",
+      avalanche: "#e0f2fe",
+      storm: "#a855f7",
+      volcano: "#f43f5e",
+      other: "#94a3b8",
     };
     accentColor = HCOLORS[ev.hazardType] ?? "#94a3b8";
     titleText = `${emoji} ${ev.title}`;
@@ -1051,7 +1184,7 @@ function InfoTooltip() {
     // Find routes that pass near this event (within ~12°)
     const nearbyRoutes = routes.filter((r) => {
       const fd = Math.sqrt((ev.coords[0] - r.from[0]) ** 2 + (ev.coords[1] - r.from[1]) ** 2);
-      const td = Math.sqrt((ev.coords[0] - r.to[0])   ** 2 + (ev.coords[1] - r.to[1])   ** 2);
+      const td = Math.sqrt((ev.coords[0] - r.to[0]) ** 2 + (ev.coords[1] - r.to[1]) ** 2);
       return fd < 20 || td < 20;
     });
 
@@ -1060,16 +1193,23 @@ function InfoTooltip() {
         {/* Location + coords */}
         <div className="text-[13px] font-semibold text-white/95 leading-snug">{ev.location}</div>
         <div className="text-[10px] text-white/35 mt-0.5">
-          {Math.abs(ev.coords[0]).toFixed(3)}°{ev.coords[0] >= 0 ? "N" : "S"} · {Math.abs(ev.coords[1]).toFixed(3)}°{ev.coords[1] >= 0 ? "E" : "W"}
+          {Math.abs(ev.coords[0]).toFixed(3)}°{ev.coords[0] >= 0 ? "N" : "S"} ·{" "}
+          {Math.abs(ev.coords[1]).toFixed(3)}°{ev.coords[1] >= 0 ? "E" : "W"}
         </div>
 
         {/* Stats row */}
         <div className="mt-2.5 flex flex-wrap gap-2">
           <StatChip label="Severity" value={ev.severity} accent={accentColor} />
           {ev.magnitude !== "—" && (
-            <StatChip label="Magnitude" value={`${ev.magnitude}${ev.magnitudeUnit ? " " + ev.magnitudeUnit : ""}`} />
+            <StatChip
+              label="Magnitude"
+              value={`${ev.magnitude}${ev.magnitudeUnit ? " " + ev.magnitudeUnit : ""}`}
+            />
           )}
-          <StatChip label="Type" value={ev.hazardType.charAt(0).toUpperCase() + ev.hazardType.slice(1)} />
+          <StatChip
+            label="Type"
+            value={ev.hazardType.charAt(0).toUpperCase() + ev.hazardType.slice(1)}
+          />
           <StatChip label="Detected" value={ev.detected ?? "—"} />
           <StatChip label="Source" value={ev.source} />
         </div>
@@ -1081,12 +1221,19 @@ function InfoTooltip() {
             <div className="flex flex-wrap gap-1.5">
               {nearbyRoutes.map((r) => {
                 const fName = r.fromName ?? nearestCity(r.from[0], r.from[1]);
-                const tName = r.toName   ?? nearestCity(r.to[0],   r.to[1]);
-                const isFrom = Math.sqrt((ev.coords[0] - r.from[0]) ** 2 + (ev.coords[1] - r.from[1]) ** 2) < 20;
+                const tName = r.toName ?? nearestCity(r.to[0], r.to[1]);
+                const isFrom =
+                  Math.sqrt((ev.coords[0] - r.from[0]) ** 2 + (ev.coords[1] - r.from[1]) ** 2) < 20;
                 return (
-                  <div key={r.id} className="flex items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] text-white/55">
+                  <div
+                    key={r.id}
+                    className="flex items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] text-white/55"
+                  >
                     <span>{ROUTE_EMOJI[r.kind]}</span>
-                    <span className="font-medium text-white/70" style={{ color: ROUTE_COLORS[r.kind] }}>
+                    <span
+                      className="font-medium text-white/70"
+                      style={{ color: ROUTE_COLORS[r.kind] }}
+                    >
                       {r.kind.charAt(0).toUpperCase() + r.kind.slice(1)}
                     </span>
                     <span>{isFrom ? `→ ${tName}` : `from ${fName}`}</span>
@@ -1103,7 +1250,7 @@ function InfoTooltip() {
     if (!rt) return null;
 
     const fName = rt.fromName ?? nearestCity(rt.from[0], rt.from[1]);
-    const tName = rt.toName   ?? nearestCity(rt.to[0],   rt.to[1]);
+    const tName = rt.toName ?? nearestCity(rt.to[0], rt.to[1]);
     accentColor = ROUTE_COLORS[rt.kind];
     titleText = `${ROUTE_EMOJI[rt.kind]} ${rt.kind.charAt(0).toUpperCase() + rt.kind.slice(1)} Route`;
 
@@ -1113,15 +1260,22 @@ function InfoTooltip() {
         <div className="flex items-center gap-2 text-[13px] font-semibold text-white/95">
           <span>{fName}</span>
           <svg width="32" height="10" viewBox="0 0 32 10" fill="none">
-            <path d="M0 5h28M24 1l4 4-4 4" stroke={accentColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M0 5h28M24 1l4 4-4 4"
+              stroke={accentColor}
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           <span>{tName}</span>
         </div>
         {/* Coords */}
         <div className="mt-1 text-[10px] text-white/30">
-          Origin: {Math.abs(rt.from[0]).toFixed(1)}°{rt.from[0] >= 0 ? "N" : "S"}, {Math.abs(rt.from[1]).toFixed(1)}°{rt.from[1] >= 0 ? "E" : "W"}
-          &nbsp;→&nbsp;
-          Dest: {Math.abs(rt.to[0]).toFixed(1)}°{rt.to[0] >= 0 ? "N" : "S"}, {Math.abs(rt.to[1]).toFixed(1)}°{rt.to[1] >= 0 ? "E" : "W"}
+          Origin: {Math.abs(rt.from[0]).toFixed(1)}°{rt.from[0] >= 0 ? "N" : "S"},{" "}
+          {Math.abs(rt.from[1]).toFixed(1)}°{rt.from[1] >= 0 ? "E" : "W"}
+          &nbsp;→&nbsp; Dest: {Math.abs(rt.to[0]).toFixed(1)}°{rt.to[0] >= 0 ? "N" : "S"},{" "}
+          {Math.abs(rt.to[1]).toFixed(1)}°{rt.to[1] >= 0 ? "E" : "W"}
         </div>
 
         <div className="mt-2.5 flex flex-wrap gap-2">
@@ -1132,18 +1286,25 @@ function InfoTooltip() {
 
         {/* Events near endpoints */}
         {(() => {
-          const nearEvts = events.filter((e) => {
-            const fd = Math.sqrt((e.coords[0] - rt.from[0]) ** 2 + (e.coords[1] - rt.from[1]) ** 2);
-            const td = Math.sqrt((e.coords[0] - rt.to[0])   ** 2 + (e.coords[1] - rt.to[1])   ** 2);
-            return fd < 20 || td < 20;
-          }).slice(0, 3);
+          const nearEvts = events
+            .filter((e) => {
+              const fd = Math.sqrt(
+                (e.coords[0] - rt.from[0]) ** 2 + (e.coords[1] - rt.from[1]) ** 2,
+              );
+              const td = Math.sqrt((e.coords[0] - rt.to[0]) ** 2 + (e.coords[1] - rt.to[1]) ** 2);
+              return fd < 20 || td < 20;
+            })
+            .slice(0, 3);
           if (!nearEvts.length) return null;
           return (
             <div className="mt-2.5">
               <div className="mb-1 text-[9px] tracking-[0.18em] text-white/30">NEARBY EVENTS</div>
               <div className="flex flex-wrap gap-1.5">
                 {nearEvts.map((e) => (
-                  <div key={e.id} className="flex items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] text-white/55">
+                  <div
+                    key={e.id}
+                    className="flex items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] text-white/55"
+                  >
                     <span>{HAZARD_EMOJI[e.hazardType]}</span>
                     <span>{e.title}</span>
                     <span className="text-white/30">·</span>
@@ -1166,7 +1327,7 @@ function InfoTooltip() {
 
     const nearRoutes = routes.filter((r) => {
       const fd = Math.sqrt((mk.lat - r.from[0]) ** 2 + (mk.lng - r.from[1]) ** 2);
-      const td = Math.sqrt((mk.lat - r.to[0])   ** 2 + (mk.lng - r.to[1])   ** 2);
+      const td = Math.sqrt((mk.lat - r.to[0]) ** 2 + (mk.lng - r.to[1]) ** 2);
       return fd < 12 || td < 12;
     });
 
@@ -1174,7 +1335,8 @@ function InfoTooltip() {
       <>
         <div className="text-[13px] font-semibold text-white/95">{mk.name}</div>
         <div className="mt-0.5 text-[10px] text-white/35">
-          {Math.abs(mk.lat).toFixed(3)}°{mk.lat >= 0 ? "N" : "S"} · {Math.abs(mk.lng).toFixed(3)}°{mk.lng >= 0 ? "E" : "W"}
+          {Math.abs(mk.lat).toFixed(3)}°{mk.lat >= 0 ? "N" : "S"} · {Math.abs(mk.lng).toFixed(3)}°
+          {mk.lng >= 0 ? "E" : "W"}
         </div>
         <div className="mt-2.5 flex flex-wrap gap-2">
           <StatChip label="Status" value={KIND_LABEL[mk.kind] ?? mk.kind} accent={accentColor} />
@@ -1186,12 +1348,19 @@ function InfoTooltip() {
             <div className="flex flex-wrap gap-1.5">
               {nearRoutes.map((r) => {
                 const fName = r.fromName ?? nearestCity(r.from[0], r.from[1]);
-                const tName = r.toName   ?? nearestCity(r.to[0],   r.to[1]);
+                const tName = r.toName ?? nearestCity(r.to[0], r.to[1]);
                 return (
-                  <div key={r.id} className="flex items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] text-white/55">
+                  <div
+                    key={r.id}
+                    className="flex items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.03] px-2 py-0.5 text-[9px] text-white/55"
+                  >
                     <span>{ROUTE_EMOJI[r.kind]}</span>
-                    <span style={{ color: ROUTE_COLORS[r.kind] }} className="font-medium">{r.kind}</span>
-                    <span>{fName} → {tName}</span>
+                    <span style={{ color: ROUTE_COLORS[r.kind] }} className="font-medium">
+                      {r.kind}
+                    </span>
+                    <span>
+                      {fName} → {tName}
+                    </span>
                   </div>
                 );
               })}
@@ -1209,12 +1378,16 @@ function InfoTooltip() {
     >
       <div
         className="relative glass-panel px-4 py-3"
-        style={{ boxShadow: `0 0 0 1px ${accentColor}22, 0 12px 40px rgba(0,0,0,0.4), 0 0 30px ${accentColor}12` }}
+        style={{
+          boxShadow: `0 0 0 1px ${accentColor}22, 0 12px 40px rgba(0,0,0,0.4), 0 0 30px ${accentColor}12`,
+        }}
       >
         {/* Accent top bar */}
         <div
           className="absolute inset-x-0 top-0 h-[2px] rounded-t-2xl"
-          style={{ background: `linear-gradient(90deg, transparent, ${accentColor}aa, transparent)` }}
+          style={{
+            background: `linear-gradient(90deg, transparent, ${accentColor}aa, transparent)`,
+          }}
         />
 
         {/* Header */}
@@ -1224,7 +1397,10 @@ function InfoTooltip() {
               className="h-1.5 w-1.5 rounded-full"
               style={{ background: accentColor, boxShadow: `0 0 6px ${accentColor}` }}
             />
-            <span className="text-[11px] font-semibold tracking-wide" style={{ color: accentColor }}>
+            <span
+              className="text-[11px] font-semibold tracking-wide"
+              style={{ color: accentColor }}
+            >
               {titleText}
             </span>
           </div>
@@ -1278,18 +1454,11 @@ function StatChip({ label, value, accent }: { label: string; value: string; acce
 export function Dashboard() {
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [cardOpen, setCardOpen] = useState(true);
-  const [memOpen, setMemOpen] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   const { events, loading, lastUpdated, error } = useEventsStore();
   const { addRoute } = useRoutesStore();
   const { addMarker } = useMarkersStore();
-
-  const triggerToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast((curr) => curr === msg ? null : curr), 3000);
-  };
 
   useEffect(() => {
     if (events.length > 0 && !activeEventId) {
@@ -1297,7 +1466,7 @@ export function Dashboard() {
     }
   }, [events, activeEventId]);
 
-  const activeEvent = events.find(e => e.id === activeEventId) || events[0];
+  const activeEvent = events.find((e) => e.id === activeEventId) || events[0];
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 text-white">
@@ -1306,15 +1475,15 @@ export function Dashboard() {
 
       <TopNav />
       <LayerToggles />
-      
+
       {error ? (
         <div className="pointer-events-auto absolute left-5 top-20 z-20 w-[280px] glass-panel !border-rose-500/20 p-3.5 flex flex-col gap-2 anim-fade-up">
           <div className="flex items-center gap-2 text-rose-300 font-semibold text-[10px] tracking-wider uppercase">
-            <AlertTriangle className="h-3 w-3" /> Offline
+            <AlertTriangle className="h-3 w-3" /> Data status
           </div>
           <span className="text-[11px] text-white/50">{error}</span>
-          <button 
-            onClick={() => window.location.reload()} 
+          <button
+            onClick={() => window.location.reload()}
             className="mt-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-[10px] text-rose-300 font-semibold text-center transition-colors"
           >
             Retry Connection
@@ -1329,16 +1498,27 @@ export function Dashboard() {
           <span className="text-[11px] text-white/50">Initializing live feeds…</span>
         </div>
       ) : (
-        <LiveEvents events={events} lastUpdated={lastUpdated} activeEventId={activeEventId} onSelect={(id) => { setActiveEventId(id); setCardOpen(true); }} />
+        <LiveEvents
+          events={events}
+          lastUpdated={lastUpdated}
+          activeEventId={activeEventId}
+          onSelect={(id) => {
+            setActiveEventId(id);
+            setCardOpen(true);
+          }}
+        />
       )}
 
-      <AIPanel activeEvent={activeEvent || null} />
-      <MemoryChip onOpen={() => setMemOpen(true)} />
-      {cardOpen && activeEvent && <DisasterCard event={activeEvent} onClose={() => setCardOpen(false)} />}
+      {cardOpen && activeEvent && (
+        <DisasterCard event={activeEvent} onClose={() => setCardOpen(false)} />
+      )}
       <InfoTooltip />
-      <Timeline activeEvent={activeEvent || null} />
-      <ActionBar onOpenControls={() => setControlsOpen(true)} onTriggerAction={triggerToast} />
-      {memOpen && <MemoryModal onClose={() => setMemOpen(false)} />}
+      <button
+        onClick={() => setControlsOpen(true)}
+        className="pointer-events-auto absolute bottom-5 left-5 z-20 min-h-11 rounded-xl border border-white/10 bg-black/40 px-4 text-xs text-white/70 backdrop-blur-lg hover:bg-white/10"
+      >
+        Scenario controls
+      </button>
       {controlsOpen && (
         <ManualControlsModal
           onClose={() => setControlsOpen(false)}
@@ -1349,18 +1529,10 @@ export function Dashboard() {
 
       {/* coord readout — subtle */}
       <div className="pointer-events-none absolute left-1/2 bottom-[88px] z-10 -translate-x-1/2 text-[10px] tracking-[0.3em] text-white/25 uppercase">
-        {activeEvent 
-          ? `${Math.abs(activeEvent.coords[0]).toFixed(2)}°${activeEvent.coords[0] >= 0 ? "N" : "S"} · ${Math.abs(activeEvent.coords[1]).toFixed(2)}°${activeEvent.coords[1] >= 0 ? "E" : "W"} · SECTOR 07-A` 
-          : 'AWAITING COORDS...'}
+        {activeEvent
+          ? `${Math.abs(activeEvent.coords[0]).toFixed(2)}°${activeEvent.coords[0] >= 0 ? "N" : "S"} · ${Math.abs(activeEvent.coords[1]).toFixed(2)}°${activeEvent.coords[1] >= 0 ? "E" : "W"} · SECTOR 07-A`
+          : "AWAITING COORDS..."}
       </div>
-
-      {/* Toast notifications */}
-      {toast && (
-        <div className="pointer-events-auto fixed bottom-20 right-5 z-50 flex items-center gap-2 glass-toast px-4 py-3 text-[11px] text-sky-200">
-          <Sparkles className="h-3.5 w-3.5 animate-pulse text-sky-300" />
-          <span className="font-medium">{toast}</span>
-        </div>
-      )}
 
       {/* unused icons silenced */}
       <span className="hidden">

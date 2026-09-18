@@ -16,15 +16,12 @@ import { AgentChatBox } from "./AgentChatBox";
 import {
   Activity,
   AlertTriangle,
-  Bell,
   Brain,
-  Building2,
   ChevronLeft,
   ChevronRight,
   Circle,
   Clock,
   Cloud,
-  FileText,
   Flame,
   Layers,
   type LucideIcon,
@@ -32,12 +29,10 @@ import {
   Radar,
   Satellite,
   Search,
-  Send,
   Settings,
   Shield,
   Sparkles,
   ThermometerSun,
-  Truck,
   Users,
   Waves,
   X,
@@ -575,115 +570,6 @@ function DisasterCard({ event, onClose }: { event: LiveEvent; onClose: () => voi
             </div>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- bottom: timeline + actions ---------- */
-
-const timeline = [
-  { label: "Earthquake", icon: AlertTriangle },
-  { label: "AI Analysis", icon: Brain },
-  { label: "Routes", icon: Radar },
-  { label: "Alerts", icon: Bell },
-  { label: "Rescue", icon: Truck },
-  { label: "Complete", icon: Shield },
-];
-
-function Timeline({ activeEvent }: { activeEvent: LiveEvent | null }) {
-  const [step, setStep] = useState(0);
-
-  // Reset timeline steps when active event changes
-  useEffect(() => {
-    setStep(0);
-  }, [activeEvent?.id]);
-
-  useEffect(() => {
-    if (step >= timeline.length) return;
-    const id = setTimeout(() => setStep((s) => s + 1), 1800);
-    return () => clearInterval(id);
-  }, [step]);
-
-  return (
-    <div className="pointer-events-auto absolute left-1/2 bottom-20 z-20 -translate-x-1/2 glass-pill px-3.5 py-2 anim-fade-up">
-      <div className="flex items-center gap-0.5">
-        {timeline.map((t, i) => {
-          const reached = i < step;
-          const active = i === step - 1;
-          return (
-            <div key={t.label} className="flex items-center">
-              <div
-                className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-[9px] font-medium transition-all duration-280 ${
-                  reached ? "bg-emerald-400/10 text-emerald-200" : "text-white/25"
-                } ${active ? "bg-emerald-400/15 shadow-[0_0_12px_rgba(52,211,153,0.1)]" : ""}`}
-              >
-                <t.icon className="h-2.5 w-2.5" />
-                <span className="tracking-wide hidden sm:inline">{t.label}</span>
-              </div>
-              {i < timeline.length - 1 && (
-                <div
-                  className={`mx-0.5 h-px w-4 transition-colors duration-280 ${
-                    reached ? "bg-emerald-300/30" : "bg-white/[0.06]"
-                  }`}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-const actions = [
-  { id: "alert", label: "Send Emergency Alert", icon: Bell, accent: "text-rose-300" },
-  { id: "shelters", label: "View Shelters", icon: Building2, accent: "text-emerald-300" },
-  { id: "manual", label: "Manual Controls", icon: Settings, accent: "text-sky-300" },
-  { id: "report", label: "Generate Report", icon: FileText, accent: "text-white/70" },
-];
-
-function ActionBar({
-  onOpenControls,
-  onTriggerAction,
-}: {
-  onOpenControls: () => void;
-  onTriggerAction: (msg: string) => void;
-}) {
-  return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-4 z-20 flex justify-center px-6">
-      <div className="flex w-full max-w-2xl items-center gap-1 glass-pill p-1 anim-fade-up">
-        {actions.map((a) => (
-          <button
-            key={a.label}
-            onClick={() => {
-              if (a.id === "manual") {
-                onOpenControls();
-              } else if (a.id === "alert") {
-                onTriggerAction("Emergency alert dispatched via orbital satellite networks.");
-              } else if (a.id === "shelters") {
-                onTriggerAction("Safe shelter locations overlay activated on orbital command.");
-              } else if (a.id === "report") {
-                onTriggerAction(
-                  "Disaster intelligence summary report compiled and ready for export.",
-                );
-              }
-            }}
-            className="group flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[11px] text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80"
-          >
-            <a.icon className={`h-3.5 w-3.5 ${a.accent}`} />
-            <span className="hidden sm:inline font-medium">{a.label}</span>
-          </button>
-        ))}
-        <button
-          onClick={() =>
-            onTriggerAction("First responder logistics team dispatched to priority coordinates.")
-          }
-          className="ml-0.5 flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-4 py-2 text-[11px] font-semibold text-emerald-200 transition-all duration-200 hover:bg-emerald-400/20 hover:shadow-[0_0_16px_rgba(52,211,153,0.1)]"
-        >
-          <Send className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Dispatch</span>
-        </button>
       </div>
     </div>
   );

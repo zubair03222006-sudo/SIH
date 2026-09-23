@@ -200,7 +200,7 @@ function LiveEvents({
                   value={e.magnitude !== "—" ? `${e.magnitude} ${e.magnitudeUnit}`.trim() : "—"}
                 />
                 <Metric label="Detected" value={e.detected ?? "—"} />
-                <Metric label="Source" value={e.source === "USGS" ? "USGS" : "EONET"} />
+                <Metric label="Source" value={e.sourceAgency ?? e.source} />
               </div>
             </button>
           );

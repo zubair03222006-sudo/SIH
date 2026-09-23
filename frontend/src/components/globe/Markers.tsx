@@ -27,7 +27,7 @@ import type { Marker } from "../../hooks/useMarkersStore";
 /* ─── Hazard Icon Renderer ─────────────────────────────────────────────────── */
 
 function HazardIcon({ hazardType }: { hazardType: string }) {
-  const props = { className: "w-2 h-2 stroke-[3]" };
+  const props = { className: "w-2.5 h-2.5 stroke-[2.75]" };
   switch (hazardType) {
     case "flood":
       return <Home {...props} />;
@@ -77,7 +77,8 @@ function DisasterBadgeMarker({
   const [hovered, setHovered] = useState(false);
   const [visible, setVisible] = useState(true);
   const { camera } = useThree();
-  const pos = latLngToVec3(coords[0], coords[1], radius * 1.015);
+  // Lift the badge above the globe enough that adjacent labels do not visually merge.
+  const pos = latLngToVec3(coords[0], coords[1], radius * 1.035);
   const posVec = pos;
 
   // Efficient per-frame front-face visibility check without garbage collection or Raycaster overhead
@@ -112,7 +113,8 @@ function DisasterBadgeMarker({
 
   return (
     <group position={pos}>
-      <Html center distanceFactor={3} className="pointer-events-auto select-none">
+      {/* Compact at the country view; marker size increases only with camera zoom. */}
+      <Html center distanceFactor={0.85} className="pointer-events-auto select-none">
         <div className="relative flex flex-col items-center">
           {/* Minimal dot-pin marker */}
           <button
@@ -124,11 +126,11 @@ function DisasterBadgeMarker({
             onMouseLeave={() => setHovered(false)}
             className={`
               relative flex items-center justify-center
-              w-3 h-3 rounded-full bg-gradient-to-br ${bgGradient}
-              border border-white/70 ${shadowGlow}
+              w-4 h-4 rounded-full bg-gradient-to-br ${bgGradient}
+              border border-white/90 ${shadowGlow}
               transition-transform duration-150 ease-out
-              hover:scale-125 cursor-pointer
-              ${isSelected ? "scale-125 ring-1 ring-white z-50" : ""}
+              hover:scale-110 cursor-pointer
+              ${isSelected ? "scale-110 ring-2 ring-white z-50" : ""}
             `}
             title={event.title}
           >
@@ -232,19 +234,19 @@ export function Markers({ radius }: { radius: number }) {
 
   return (
     <group>
-      {events.map((e) => {
+      {events.map((event) => {
         const coords: [number, number] = [
-          e.coords?.[0] ?? e.latitude,
-          e.coords?.[1] ?? e.longitude,
+          event.coords?.[0] ?? event.latitude,
+          event.coords?.[1] ?? event.longitude,
         ];
         return (
           <DisasterBadgeMarker
-            key={e.id}
-            event={e}
+            key={event.id}
+            event={event}
             coords={coords}
             radius={radius}
-            isSelected={selected?.type === "event" && selected.id === e.id}
-            onToggle={() => toggleSelect({ type: "event", id: e.id })}
+            isSelected={selected?.type === "event" && selected.id === event.id}
+            onToggle={() => toggleSelect({ type: "event", id: event.id })}
           />
         );
       })}

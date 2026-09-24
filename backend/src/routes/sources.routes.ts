@@ -7,7 +7,8 @@ const router = Router();
 // Add the WRF stub just for health reporting
 const wrfStub = new WRFRegionalForecastAdapter();
 
-router.get("/health", (req, res) => {
+router.get("/health", async (req, res) => {
+  await pollingService.ensureFresh();
   const adapters = pollingService.getAdapters();
   
   const healthStatus = adapters.map(a => a.getHealth());

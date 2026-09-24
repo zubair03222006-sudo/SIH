@@ -92,8 +92,11 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-// Start the background polling service
-pollingService.start();
+// Keep intervals for the long-running local server. Vercel functions fetch on
+// demand through `ensureFresh`, because background timers are not persistent.
+if (!process.env.VERCEL) {
+  pollingService.start();
+}
 
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {

@@ -14,6 +14,8 @@ export class SourcePollingJob {
   private events: DisasterEvent[] = [];
   private intervalIds: NodeJS.Timeout[] = [];
   private isPolling = false;
+  private lastFetchedAt: Date | null = null;
+  private fetchInFlight: Promise<void> | null = null;
 
   constructor() {
     this.adapters = [
@@ -34,6 +36,16 @@ export class SourcePollingJob {
 
   public getEvents(): DisasterEvent[] {
     return this.events;
+  }
+
+  /**
+   * Vercel functions do not keep a reliable background process alive. Ensure
+   * the first request (and a stale warm function) waits for current source data
+   * instead of returning the empty in-memory cache.
+   */
+  public async ensureFresh(maxAgeMs = 2 * 60 * 1000): Promise<void> {
+    const cacheIsStale = !this.lastFetchedAt || Date.now() - this.lastFetchedAt.getTime() > maxAgeMs;
+    if (this.events.length === 0 || cacheIsStale) await this.fetchAll();
   }
 
   private safeEvents(adapter: SourceAdapter, events: DisasterEvent[]): DisasterEvent[] {
@@ -67,6 +79,17 @@ export class SourcePollingJob {
   }
 
   public async fetchAll(): Promise<void> {
+    if (this.fetchInFlight) return this.fetchInFlight;
+
+    this.fetchInFlight = this.fetchAllInternal();
+    try {
+      await this.fetchInFlight;
+    } finally {
+      this.fetchInFlight = null;
+    }
+  }
+
+  private async fetchAllInternal(): Promise<void> {
     console.log("[SourcePollingJob] Fetching from all adapters...");
     try {
       const results = await Promise.allSettled(this.adapters.map(a => a.fetch()));
@@ -81,6 +104,7 @@ export class SourcePollingJob {
       });
 
       this.events = newEvents;
+      this.lastFetchedAt = new Date();
       console.log(`[SourcePollingJob] Cache updated with ${this.events.length} events.`);
     } catch (err) {
       console.error("[SourcePollingJob] Critical error in fetchAll:", err);

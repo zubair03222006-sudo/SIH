@@ -50,7 +50,8 @@ function normalizeForFrontend(e: DisasterEvent): DisasterEvent {
 }
 
 // 1. Get all events
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
+  await pollingService.ensureFresh();
   const allEvents = [...pollingService.getEvents(), ...customEvents];
   const filteredEvents = allEvents.filter((e) => !deletedEventIds.has(e.id));
   const sorted = sortEvents(filteredEvents).slice(0, 30).map(normalizeForFrontend);
@@ -63,7 +64,8 @@ router.get("/", (req, res) => {
 });
 
 // Get India only events (used by UI filter)
-router.get("/india", (req, res) => {
+router.get("/india", async (req, res) => {
+  await pollingService.ensureFresh();
   const allEvents = [...pollingService.getEvents(), ...customEvents];
   const filteredEvents = allEvents.filter((e) => !deletedEventIds.has(e.id));
   

@@ -34,8 +34,33 @@ export interface AdvisoryResult {
 }
 
 const LOCATIONS: Array<{ name: string; aliases: string[] }> = [
+  { name: "Nizamabad", aliases: ["nizamabad", "निज़ामाबाद", "నిజామాబాద్", "నిజామాబాదు"] },
   { name: "Hyderabad", aliases: ["hyderabad", "हैदराबाद", "హైదరాబాద్", "హైదరాబాదు"] },
+  { name: "Warangal", aliases: ["warangal", "वरंगल", "వరంగల్"] },
+  { name: "Karimnagar", aliases: ["karimnagar", "करीमनगर", "కరీంనగర్"] },
+  { name: "Khammam", aliases: ["khammam", "खम्मम", "ఖమ్మం"] },
+  { name: "Nalgonda", aliases: ["nalgonda", "नलगोंडा", "నల్గొండ"] },
+  { name: "Mahbubnagar", aliases: ["mahbubnagar", "महबूबनगर", "మహబూబ్‌నగర్"] },
+  { name: "Adilabad", aliases: ["adilabad", "आदिलाबाद", "ఆదిలాబాద్"] },
+  { name: "Medak", aliases: ["medak", "मेडक", "మెదక్"] },
+  { name: "Siddipet", aliases: ["siddipet", "सिद्धिपेट", "సిద్దిపేట"] },
+  { name: "Sangareddy", aliases: ["sangareddy", "संगारेड्डी", "సంగారెడ్డి"] },
+  { name: "Kamareddy", aliases: ["kamareddy", "कामारेड्डी", "కామారెడ్డి"] },
+  { name: "Nirmal", aliases: ["nirmal", "निर्मल", "నిర్మల్"] },
+  { name: "Suryapet", aliases: ["suryapet", "सूर्यापेट", "సూర్యాపేట"] },
+  { name: "Jagtial", aliases: ["jagtial", "जगतीयाल", "జగిత్యాల"] },
+  { name: "Mancherial", aliases: ["mancherial", "मंचेरियल", "మంచిర్యాల"] },
+  { name: "Peddapalli", aliases: ["peddapalli", "पेद्दापल्ली", "పెద్దపల్లి"] },
   { name: "Visakhapatnam", aliases: ["visakhapatnam", "vizag", "विशाखापत्तनम", "విశాఖపట్నం"] },
+  { name: "Vijayawada", aliases: ["vijayawada", "विजयवाड़ा", "విజయవాడ"] },
+  { name: "Guntur", aliases: ["guntur", "गुंटूर", "గుంటూరు"] },
+  { name: "Tirupati", aliases: ["tirupati", "तिरुपति", "తిరుపతి"] },
+  { name: "Kurnool", aliases: ["kurnool", "करनूल", "కర్నూలు"] },
+  { name: "Nellore", aliases: ["nellore", "नेल्लौर", "నెల్లూరు"] },
+  { name: "Rajahmundry", aliases: ["rajahmundry", "राजमुंदरी", "రాజమండ్రి"] },
+  { name: "Kakinada", aliases: ["kakinada", "काकीनाडा", "కాకినాడ"] },
+  { name: "Anantapur", aliases: ["anantapur", "अनंतपुर", "అనంతపురం"] },
+  { name: "Kadapa", aliases: ["kadapa", "कडपा", "కడప"] },
   { name: "Mumbai", aliases: ["mumbai", "मुंबई", "ముంబై"] },
   { name: "Delhi", aliases: ["delhi", "नई दिल्ली", "दिल्ली", "ఢిల్లీ"] },
   { name: "Bengaluru", aliases: ["bengaluru", "bangalore", "बेंगलुरु", "బెంగళూరు"] },
@@ -52,11 +77,47 @@ export function detectLanguage(message: string, requested?: string): WeatherLang
 
 function extractLocation(message: string): string | null {
   const lower = message.toLocaleLowerCase();
+  
+  // 1. Direct match against known aliases
   for (const location of LOCATIONS) {
-    if (location.aliases.some((alias) => lower.includes(alias.toLocaleLowerCase()))) return location.name;
+    if (location.aliases.some((alias) => lower.includes(alias.toLocaleLowerCase()))) {
+      return location.name;
+    }
   }
-  const match = message.match(/(?:in|at|near|for)\s+([a-z][a-z\s-]{1,45}?)(?=\s+(?:today|tomorrow|this|on|during|morning|afternoon|evening|night)|[?.!,]|$)/i);
-  return match?.[1]?.trim() || null;
+
+  // 2. Preposition match ("in Nizamabad", "for Siddipet village", "at Karimnagar", "of Bodhan")
+  const prepMatch = message.match(/(?:in|at|near|for|of|around)\s+([\p{L}0-9\s-]{2,45}?)(?=\s+(?:today|tomorrow|yesterday|this|on|during|morning|afternoon|evening|night|weather|forecast|report|climate|advisory|pesticide|spray)|[?.!,]|$)/iu);
+  if (prepMatch?.[1]?.trim()) {
+    return prepMatch[1].trim();
+  }
+
+  // 3. Prefix match ("Nizamabad weather", "Guntur district forecast")
+  const prefixMatch = message.match(/([\p{L}0-9\s-]{2,45}?)\s+(?:weather|forecast|report|climate|temperature)/iu);
+  if (prefixMatch?.[1]?.trim()) {
+    const candidate = prefixMatch[1].trim();
+    // Filter out common query words like "what is the", "tell me"
+    const cleanedCandidate = candidate.replace(/^(?:what|is|was|the|tell|me|show|give|how|will|be)\s+/gi, "").trim();
+    if (cleanedCandidate.length >= 2) return cleanedCandidate;
+  }
+
+  // 4. Telugu / Hindi postposition pattern match
+  const regionalMatch = message.match(/([\p{L}]{2,30})\s*(?:లో|లోని|వద్ద|దగ్గర|में|का|की|के|पर)/iu);
+  if (regionalMatch?.[1]?.trim()) {
+    return regionalMatch[1].trim();
+  }
+
+  // 5. Fallback stop-word cleaning
+  const stopWordsCleaned = message
+    .replace(/\b(?:what|was|is|the|weather|report|forecast|climate|temperature|today|tomorrow|yesterday|now|right|tell|me|how|will|be|condition|advisory|pesticide|spray|in|at|for|of|near|around|show|details|please|give|predictive|accurate|వాతావరణం|ఎలా|ఉంటుంది|రేపు|ఈరోజు|నివేదిక|తెలపండి|చెప్పండి|మౌసమ్|मौसम|कैसा|रहेगा|आज|कल|बताओ|जानकारी)\b/giu, " ")
+    .replace(/[\p{Punctuation}\p{Symbol}]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (stopWordsCleaned.length >= 2 && stopWordsCleaned.length <= 50) {
+    return stopWordsCleaned;
+  }
+
+  return null;
 }
 
 export function parseWeatherIntent(message: string, requestedLanguage?: string): WeatherIntent {

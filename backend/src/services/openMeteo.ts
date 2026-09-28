@@ -59,11 +59,33 @@ async function fetchJson(url: string, attempts = 2): Promise<any | null> {
   return null;
 }
 
+export function cleanLocationQuery(query: string): string {
+  return query
+    .replace(/[\p{Punctuation}\p{Symbol}]/gu, " ")
+    .replace(/\b(?:district|dist|village|town|mandal|city|state|tehsil|block|nagar|gaon|gram|gramam|jilla|మండలం|గ్రామం|జిల్లా|పట్టణం|నగరం|गांव|जिला|शहर|तहसील)\b/giu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function geocodeLocation(name: string): Promise<GeoLocation | null> {
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=en&countryCode=IN`;
-  const result = (await fetchJson(url))?.results?.[0];
-  if (!result) return null;
-  return { lat: result.latitude, lng: result.longitude, name: result.name, admin1: result.admin1, country: result.country };
+  const cleaned = cleanLocationQuery(name);
+  const candidates = Array.from(new Set([name.trim(), cleaned])).filter((c) => c.length >= 2);
+
+  for (const query of candidates) {
+    // Attempt 1: India-restricted search
+    const urlIn = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&countryCode=IN`;
+    let result = (await fetchJson(urlIn))?.results?.[0];
+    if (result) {
+      return { lat: result.latitude, lng: result.longitude, name: result.name, admin1: result.admin1, country: result.country };
+    }
+    // Attempt 2: Global fallback search
+    const urlGlobal = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en`;
+    result = (await fetchJson(urlGlobal))?.results?.[0];
+    if (result) {
+      return { lat: result.latitude, lng: result.longitude, name: result.name, admin1: result.admin1, country: result.country };
+    }
+  }
+  return null;
 }
 
 export async function fetchWeather(

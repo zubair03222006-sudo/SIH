@@ -34,7 +34,102 @@ app.use("/api/routing", routingRoutes);
 app.use("/api/field-reports", fieldReportsRoutes);
 app.use("/api/weather", weatherRoutes);
 
-// LLM Proxy API to hide keys from the frontend bundle
+// ──────────────────────────────────────────────────────────────────────────────
+// LLM Proxy — hides API keys from the frontend bundle
+// Primary:  Google AI Studio  (gemini-2.5-flash, fast)
+// Fallback: OpenRouter        (inclusionai/ling-3.0-flash-fin:free)
+// ──────────────────────────────────────────────────────────────────────────────
+
+const GOOGLE_CHAT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+const GOOGLE_MODEL = "gemini-2.5-flash";
+const OPENROUTER_MODEL_DEFAULT = "inclusionai/ling-3.0-flash-fin:free";
+
+async function callLLM(
+  endpoint: string,
+  headers: Record<string, string>,
+  body: Record<string, unknown>,
+  timeoutMs = 20_000,
+): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const data = r.ok ? await r.json() : await r.text();
+    return { ok: r.ok, status: r.status, data };
+  } finally {
+    clearTimeout(timerId);
+  }
+}
+
+// Auto-fallback: try Google first; on failure fall back to OpenRouter
+app.post("/api/chat/auto", async (req, res) => {
+  const { messages, system, max_tokens = 512, temperature = 0.7 } = req.body ?? {};
+  if (!messages) {
+    res.status(400).json({ error: "Missing required field: messages" });
+    return;
+  }
+
+  const googleKey = process.env.GOOGLE_API_KEY || "";
+  const openRouterKey = process.env.OPENROUTER_API_KEY || "";
+  const openRouterModel = process.env.OPENROUTER_MODEL || OPENROUTER_MODEL_DEFAULT;
+
+  const allMessages = system
+    ? [{ role: "system", content: system }, ...messages]
+    : messages;
+
+  // ── Try Google AI Studio first ──
+  if (googleKey) {
+    try {
+      const result = await callLLM(
+        GOOGLE_CHAT_ENDPOINT,
+        { "Content-Type": "application/json", Authorization: `Bearer ${googleKey}` },
+        { model: GOOGLE_MODEL, messages: allMessages, max_tokens, temperature },
+        15_000,
+      );
+      if (result.ok) {
+        res.json({ ...(result.data as object), _provider: "google", _model: GOOGLE_MODEL });
+        return;
+      }
+      console.warn("[AEGIS] Google LLM failed, falling back to OpenRouter:", result.data);
+    } catch (err) {
+      console.warn("[AEGIS] Google LLM error, falling back to OpenRouter:", err);
+    }
+  }
+
+  // ── Fall back to OpenRouter ──
+  if (!openRouterKey) {
+    res.status(503).json({ error: "No LLM provider is configured." });
+    return;
+  }
+  try {
+    const result = await callLLM(
+      OPENROUTER_ENDPOINT,
+      {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openRouterKey}`,
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "AEGIS AI Agent",
+      },
+      { model: openRouterModel, messages: allMessages, max_tokens, temperature },
+      20_000,
+    );
+    if (result.ok) {
+      res.json({ ...(result.data as object), _provider: "openrouter", _model: openRouterModel });
+      return;
+    }
+    res.status(result.status as number).json({ error: result.data });
+  } catch (err: any) {
+    res.status(500).json({ error: `LLM proxy error: ${err.message}` });
+  }
+});
+
+// Explicit provider proxy (legacy / WeatherGPT internal use)
 app.post("/api/chat", async (req, res) => {
   const { provider, body } = req.body;
   if (!provider || !body) {
@@ -44,48 +139,37 @@ app.post("/api/chat", async (req, res) => {
 
   let endpoint = "";
   let apiKey = "";
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
 
   if (provider === "google") {
-    endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+    endpoint = GOOGLE_CHAT_ENDPOINT;
     apiKey = process.env.GOOGLE_API_KEY || "";
-    if (!apiKey) {
-      res.status(500).json({ error: "Google API key not configured on backend." });
-      return;
-    }
+    if (!apiKey) { res.status(500).json({ error: "Google API key not configured on backend." }); return; }
     headers["Authorization"] = `Bearer ${apiKey}`;
-  } else if (provider === "openrouter") {
-    endpoint = "https://openrouter.ai/api/v1/chat/completions";
-    apiKey = process.env.OPENROUTER_API_KEY || "";
-    if (!apiKey) {
-      res.status(500).json({ error: "OpenRouter API key not configured on backend." });
-      return;
+    // Inject canonical model if caller didn't set one
+    if (body && typeof body === "object" && !(body as any).model) {
+      (body as any).model = GOOGLE_MODEL;
     }
+  } else if (provider === "openrouter") {
+    endpoint = OPENROUTER_ENDPOINT;
+    apiKey = process.env.OPENROUTER_API_KEY || "";
+    if (!apiKey) { res.status(500).json({ error: "OpenRouter API key not configured on backend." }); return; }
     headers["Authorization"] = `Bearer ${apiKey}`;
     headers["HTTP-Referer"] = "http://localhost:3000";
     headers["X-Title"] = "AEGIS AI Agent";
+    // Inject the configured model if caller didn't set one
+    if (body && typeof body === "object" && !(body as any).model) {
+      (body as any).model = process.env.OPENROUTER_MODEL || OPENROUTER_MODEL_DEFAULT;
+    }
   } else {
     res.status(400).json({ error: "Invalid provider. Must be 'google' or 'openrouter'" });
     return;
   }
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      res.status(response.status).send(errorText);
-      return;
-    }
-
-    const data = await response.json();
-    res.json(data);
+    const result = await callLLM(endpoint, headers, body as Record<string, unknown>);
+    if (result.ok) { res.json(result.data); return; }
+    res.status(result.status).send(result.data);
   } catch (err: any) {
     console.error(`[AEGIS Backend] LLM proxy error for ${provider}:`, err);
     res.status(500).json({ error: `Backend LLM proxy error: ${err.message}` });
